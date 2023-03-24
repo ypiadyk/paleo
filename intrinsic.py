@@ -1,3 +1,4 @@
+import joblib
 from utils import *
 from calibrate import *
 
@@ -105,11 +106,36 @@ def save_camera_calibration(calibration, filename, mean_error=None):
                    "mean_projection_error, pixels": mean_error}, f, indent=4, cls=NumpyEncoder)
 
 
-if __name__ == "__main__":
-    # data_path = "D:/paleo-data/CALIBRATION BOARD 1e2/"
-    # data_path = "D:/paleo-data/CALIBRATION BOARD 3e4/"
-    data_path = "D:/paleo-data/CALIBRATION BOARD 5/"
+def undistort_images(images_path, cam_calib):
+    images = glob.glob(images_path + "*.JPG")
+    ensure_exists(images_path + "undistorted/")
+    print("Found %d images:" % len(images), images)
 
-    calibration, errors = calibrate_intrinsic(data_path, error_thr=1.1, save=True, plot=True)
+    def undistort_single(image):
+        original = cv2.imread(image)
+        undistorted = cv2.undistort(original, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
+        new_filename = images_path + "undistorted/" + os.path.basename(image)
+        cv2.imwrite(new_filename, undistorted)
+        print(new_filename)
+
+    jobs = [joblib.delayed(undistort_single)(image) for image in images]
+    joblib.Parallel(verbose=15, n_jobs=-1, batch_size=1, pre_dispatch="all")(jobs)
+
+
+if __name__ == "__main__":
+    calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
+    # calib_data = "D:/paleo-data/CALIBRATION BOARD 3e4/"
+    # calib_data = "D:/paleo-data/CALIBRATION BOARD 5/"
+
+    # calibration, errors = calibrate_intrinsic(calib_data, error_thr=1.1, save=True, plot=True)
+    cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
+
+    image_data = "D:/paleo-data/1 - FLAT OBJECT 1/"
+    # image_data = "D:/paleo-data/2 - FLAT OBJECT 2/"
+    # image_data = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
+    # image_data = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
+    # image_data = "D:/paleo-data/5 - BOX/"
+
+    undistort_images(image_data, cam_calib)
 
     plt.show()

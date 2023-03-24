@@ -260,28 +260,28 @@ def load_ply(filename):
 
 def scatter(ax, p, *args, **kwargs):
     if len(p.shape) > 1:
-        ax.scatter(p[:, 0], p[:, 2], -p[:, 1], *args, **kwargs)
+        ax.scatter(p[:, 0], p[:, 1], p[:, 2], *args, **kwargs)
     else:
-        ax.scatter(p[0], p[2], -p[1], **kwargs)
+        ax.scatter(p[0], p[1], p[2], **kwargs)
 
 
 def line(ax, p1, p2, *args, **kwargs):
-    ax.plot([p1[0], p2[0]], [p1[2], p2[2]], [-p1[1], -p2[1]], *args, **kwargs)
+    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], *args, **kwargs)
 
 
-def basis(ax, T, R, *args, length=1, **kwargs):
+def basis(ax, T, R, *args, length=30, **kwargs):
     line(ax, T, T + length * R[:, 0], "r")
     line(ax, T, T + length * R[:, 1], "g")
     line(ax, T, T + length * R[:, 2], "b")
 
 
-def board(ax, T, R, *args, label="", **kwargs):
-    line(ax, T, T + 375 * R[:, 0], "orange", linestyle="--", label=label)
-    line(ax, T, T + 270 * R[:, 1], "orange", linestyle="--")
-    line(ax, T + 375 * R[:, 0], T + 375 * R[:, 0] + 270 * R[:, 1], "orange", linestyle="--")
-    line(ax, T + 270 * R[:, 1], T + 375 * R[:, 0] + 270 * R[:, 1], "orange", linestyle="--")
+def board(ax, T, R, *args, label="", w=750, h=540, **kwargs):
+    line(ax, T, T + w * R[:, 0], "orange", linestyle="--", label=label)
+    line(ax, T, T + h * R[:, 1], "orange", linestyle="--")
+    line(ax, T + w * R[:, 0], T + w * R[:, 0] + h * R[:, 1], "orange", linestyle="--")
+    line(ax, T + h * R[:, 1], T + w * R[:, 0] + h * R[:, 1], "orange", linestyle="--")
 
-    basis(ax, T, R, length=10)
+    basis(ax, T, R, length=30)
 
 
 def axis_equal_3d(ax, zoom=1):

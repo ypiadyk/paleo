@@ -54,7 +54,7 @@ def detect_checker(gray, n=11, m=8, size=20, pre_scale=1, draw_on=None, draw_sca
 # Detect charuco board on a gray scale image. Use pre_scale to do the initial pass on a lower resolution image.
 # Use draw_scale to do reduce the resolution of an overlay image.
 # Board origin: bottom-left. First axis: X to the right. Second axis: Y up
-def detect_charuco(gray, n=25, m=18, size=15, pre_scale=1, draw_on=None, draw_scale=1):
+def detect_charuco(gray, n=25, m=18, size=30, pre_scale=1, draw_on=None, draw_scale=1):
     aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
     board = aruco.CharucoBoard_create(n, m, size, size * 12 / 15, aruco_dict)
 
@@ -172,11 +172,11 @@ if __name__ == "__main__":
                     "D:/paleo-data/CALIBRATION BOARD 1e2/",
                     "D:/paleo-data/CALIBRATION BOARD 3e4/",
                     "D:/paleo-data/CALIBRATION BOARD 5/",
-                    "D:/paleo-data/1 - FLAT OBJECT 1/",
-                    "D:/paleo-data/2 - FLAT OBJECT 2/",
-                    "D:/paleo-data/3 - IRREGULAR OBJECT 1/",
-                    "D:/paleo-data/4 - IRREGULAR OBJECT 2/",
-                    "D:/paleo-data/5 - BOX/",
+                    "D:/paleo-data/1 - FLAT OBJECT 1/undistorted/",
+                    "D:/paleo-data/2 - FLAT OBJECT 2/undistorted/",
+                    "D:/paleo-data/3 - IRREGULAR OBJECT 1/undistorted/",
+                    "D:/paleo-data/4 - IRREGULAR OBJECT 2/undistorted/",
+                    "D:/paleo-data/5 - BOX/undistorted/",
                 ]
 
     # filename = "D:/paleo-data/CALIBRATION BOARD 1e2/DSC00050.JPG"

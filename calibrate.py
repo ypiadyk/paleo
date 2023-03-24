@@ -99,35 +99,19 @@ def lift_to_3d(p_img, mtx, T, R, offset=0.0):
     return p_world
 
 
-def reconstruct_planes(data_path, camera_calib, min_points=80, thr=35, center=False, undistorted=False, charuco_only=False, extra_output=False, **kw):
+def reconstruct_planes(data_path, camera_calib, min_points=10, undistorted=False):
     cam_mtx, cam_dist, cam_new_mtx = camera_calib["mtx"], camera_calib["dist"], camera_calib["new_mtx"]
-    charuco = load_corners(data_path + "/charuco/corners.json")
+    charuco = load_corners(data_path + "/undistorted/detected/corners.json")
 
-    if not charuco_only:
-        full = load_corners(data_path + "/checker/detected_full/corners.json")
-        half = load_corners(data_path + "/checker/detected_half/corners.json")
-
-        n = len(charuco.keys())
-        full_offsets, half_offsets = [[160, 190]] * n, [[800 + 160, 190]] * thr
-        half_offsets.extend([[160, 190]] * (n - thr))
-        if center:
-            half_offsets = [[400 + 160, 190]] * n
-
-    charuco_template, checker_template = "blank_%d.png", "checker_%d.png"
-    charuco_img, charuco_3d, charuco_id, charuco_frame = [], [], [], []
-    checker_img, checker_3d, checker_2d, checker_local = [], [], [], []
+    charuco_template = "blank_%d.png"
+    charuco_img, charuco_2d, charuco_3d, charuco_id, charuco_frame = [], [], [], [], []
 
     avg_errors, all_errors = [], []
-    for i, id in enumerate(sorted([int(name[name.rfind("_") + 1:-4]) for name in charuco.keys()])):
-        name, pair = charuco_template % id, checker_template % id
-
-        if not charuco_only:
-            if pair not in full and pair not in half:
-                continue
-
+    for name in sorted(charuco.keys()):
         c_obj = charuco[name]["obj"]
         c_idx = charuco[name]["idx"]
         c_img = charuco[name]["img"].astype(np.float).reshape((-1, 2))
+
         if not undistorted:
             c_img = cv2.undistortPoints(c_img.reshape((-1, 1, 2)), cam_mtx, cam_dist, P=cam_new_mtx).reshape((-1, 2))
 
@@ -143,31 +127,11 @@ def reconstruct_planes(data_path, camera_calib, min_points=80, thr=35, center=Fa
 
         c_3d = np.matmul(R, c_obj.T) + tvec
         charuco_img.append(c_img)
+        charuco_2d.append(c_obj)
         charuco_3d.append(c_3d.T)
         charuco_id.append(c_idx)
         charuco_frame.append((T, R))
 
-        if not charuco_only:
-            src = full if pair in full else half
-            p_img = src[pair]["img"].astype(np.float).reshape((-1, 2))
-            if not undistorted:
-                p_img = cv2.undistortPoints(p_img.reshape((-1, 1, 2)), cam_mtx, cam_dist, P=cam_new_mtx).reshape((-1, 2))
-            p_prj = src[pair]["obj"][:, :2] + (full_offsets[i] if pair in full else half_offsets[i])
+    chrk = (charuco_img, charuco_2d, charuco_3d, charuco_id, charuco_frame)
 
-            p_3d = lift_to_3d(p_img, cam_new_mtx, T, R, offset=0)
-            checker_img.append(p_img)
-            checker_3d.append(p_3d)
-            checker_2d.append(p_prj.astype(np.float32))
-
-            local = np.zeros((p_3d.shape[0], 3))
-            local[:, 0] = np.dot(p_3d - T, R[:, 0])
-            local[:, 1] = np.dot(p_3d - T, R[:, 1])
-            checker_local.append(local.astype(np.float32))
-
-    chrk = (charuco_img, charuco_3d, charuco_id, charuco_frame) if extra_output else (charuco_3d, charuco_id, charuco_frame)
-    chck = (checker_img, checker_3d, checker_2d, checker_local) if extra_output else (checker_3d, checker_2d, checker_local)
-
-    if charuco_only:
-        return chrk, (avg_errors, all_errors)
-    else:
-        return chrk, chck, (avg_errors, all_errors)
+    return chrk, (avg_errors, all_errors)
