@@ -99,17 +99,20 @@ def calibrate_extrinsic(data_path, cam_calib, min_plane_points=10, save=None, pl
 
 
 if __name__ == "__main__":
-    calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
+    # calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 3e4/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 5/"
+    calib_data = "D:/paleo-data/test-calib/"
 
     cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
-    data_path = "D:/paleo-data/1 - FLAT OBJECT 1/"
+    # data_path = "D:/paleo-data/1 - FLAT OBJECT 1/"
     # data_path = "D:/paleo-data/2 - FLAT OBJECT 2/"
     # data_path = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
     # data_path = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
     # data_path = "D:/paleo-data/5 - BOX/"
+    # data_path = "D:/paleo-data/test-scan-1/"
+    data_path = "D:/paleo-data/test-scan-2/"
 
     calibrate_extrinsic(data_path, cam_calib, save=True, plot=True, save_figures=True)
 

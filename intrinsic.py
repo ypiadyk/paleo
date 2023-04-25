@@ -1,6 +1,7 @@
 import joblib
 from utils import *
 from calibrate import *
+from raw import *
 
 
 def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipalPoint=None, save=False, plot=False, **kw):
@@ -58,12 +59,12 @@ def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipal
 
         def draw_rec(img, p, idx):
             for i in range(len(idx)-1):
-                img = cv2.line(img, tuple(p[idx[i], :].astype(np.int)), tuple(p[idx[i+1], :].astype(np.int)), (0, 0, 255), thickness=2)
+                img = cv2.line(img, tuple(p[idx[i], :].astype(np.int32)), tuple(p[idx[i+1], :].astype(np.int32)), (0, 0, 255), thickness=2)
             return img
 
         def draw_points(img, p):
             for i in range(p.shape[0]):
-                img = cv2.circle(img, tuple(p[i, :].astype(np.int)), 10, (0, 255, 0), thickness=2)
+                img = cv2.circle(img, tuple(p[i, :].astype(np.int32)), 10, (0, 255, 0), thickness=2)
             return img
 
         plt.figure("Original", (12, 9))
@@ -75,7 +76,7 @@ def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipal
 
         img = draw_rec(img, points, idx)
         img = draw_points(img, points)
-        img = cv2.circle(img, tuple(mtx[:2, 2].astype(np.int)), 5, (255, 0, 0), thickness=10)
+        img = cv2.circle(img, tuple(mtx[:2, 2].astype(np.int32)), 5, (255, 0, 0), thickness=10)
 
         plt.figure("Undistorted", (12, 9))
         plt.clf()
@@ -87,7 +88,7 @@ def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipal
 
         undistorted = draw_rec(undistorted, u_points, idx)
         undistorted = draw_points(undistorted, u_points)
-        undistorted = cv2.circle(undistorted, tuple(new_mtx[:2, 2].astype(np.int)), 5, (255, 0, 0), thickness=10)
+        undistorted = cv2.circle(undistorted, tuple(new_mtx[:2, 2].astype(np.int32)), 5, (255, 0, 0), thickness=10)
 
     if save:
         save_camera_calibration(calibration, data_path + "calibrated/geometry.json", mean_error=np.mean(errors[1][0]))
@@ -116,6 +117,11 @@ def undistort_images(images_path, cam_calib):
         undistorted = cv2.undistort(original, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
         new_filename = images_path + "undistorted/" + os.path.basename(image)
         cv2.imwrite(new_filename, undistorted)
+
+        arw = read_raw(image[:-4] + ".ARW")[10:4010, 10:6010]
+        arw = (255*arw).astype(np.uint8)
+        u_arw = cv2.undistort(arw, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
+        cv2.imwrite(new_filename[:-4] + ".bmp", u_arw[:, :, ::-1])
         print(new_filename)
 
     jobs = [joblib.delayed(undistort_single)(image) for image in images]
@@ -126,8 +132,9 @@ if __name__ == "__main__":
     calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 3e4/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 5/"
+    # calib_data = "D:/paleo-data/test-calib/"
 
-    # calibration, errors = calibrate_intrinsic(calib_data, error_thr=1.1, save=True, plot=True)
+    # calibration, errors = calibrate_intrinsic(calib_data, error_thr=3.1, save=True, plot=True)
     cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
     image_data = "D:/paleo-data/1 - FLAT OBJECT 1/"
@@ -135,6 +142,8 @@ if __name__ == "__main__":
     # image_data = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
     # image_data = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
     # image_data = "D:/paleo-data/5 - BOX/"
+    # image_data = "D:/paleo-data/test-scan-1/"
+    # image_data = "D:/paleo-data/test-scan-2/"
 
     undistort_images(image_data, cam_calib)
 

@@ -3,6 +3,7 @@ import glob
 import json
 import joblib
 import cv2
+import matplotlib.pyplot as plt
 from cv2 import aruco
 # print(cv2.__version__)
 from utils import *
@@ -54,7 +55,7 @@ def detect_checker(gray, n=11, m=8, size=20, pre_scale=1, draw_on=None, draw_sca
 # Detect charuco board on a gray scale image. Use pre_scale to do the initial pass on a lower resolution image.
 # Use draw_scale to do reduce the resolution of an overlay image.
 # Board origin: bottom-left. First axis: X to the right. Second axis: Y up
-def detect_charuco(gray, n=25, m=18, size=30, pre_scale=1, draw_on=None, draw_scale=1):
+def detect_charuco(gray, n=29, m=18, size=20, pre_scale=1, draw_on=None, draw_scale=1):
     aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
     board = aruco.CharucoBoard_create(n, m, size, size * 12 / 15, aruco_dict)
 
@@ -167,7 +168,60 @@ def load_corners(filename):
     return corners
 
 
+# units = mm
+def gen_charuco_texture(n=25, m=18, size=(400, 300), checker_size=15, pixels_per_unit=10, center=True):
+    w, h = size[0] * pixels_per_unit, size[1] * pixels_per_unit
+    cp = checker_size * pixels_per_unit
+
+    pad_x = (w - n * cp) // 2
+    pad_y = (h - m * cp) // 2
+
+    img = np.zeros((h, w), dtype=np.uint8)
+    img[...] = 255
+
+    aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
+    board = aruco.CharucoBoard_create(n, m, cp, cp * 12 // 15, aruco_dict)
+
+    b_w, b_h, ms = n * cp, m * cp, cp * 3 // (2 * 15)
+    img[pad_y:pad_y + b_h, pad_x:pad_x + b_w] = aruco.drawPlanarBoard(board, (b_w, b_h), marginSize=ms, borderBits=1)
+
+    for i in range(m):
+        for j in range(n):
+            if (i + j) % 2 == 1:
+                img[pad_y + i * cp:pad_y + (i + 1) * cp, pad_x + j * cp:pad_x + (j + 1) * cp] = 0
+
+    # img[img == 0] = round(255 / contrast)
+
+    if center:
+        img[pad_y + 3 * cp:pad_y + 15 * cp, pad_x + 3 * cp:pad_x + 22 * cp] = 255
+    else:
+        for j in set(range(n)) - {0, 1, 2, 6, 7, 11, 12, 13, 17, 18, 22, 23, 24}:
+            img[:, pad_x + j * cp:pad_x + (j + 1) * cp] = 255
+
+    img = np.repeat(img[:, :, None], 3, axis=2)
+    # cv2.putText(img, "25 x 18 | 15 mm | AruCo DICT_5x5", (pad_x - pad_y // 5, h-pad_y + pad_y * 2 // 3), cv2.FONT_HERSHEY_SIMPLEX,
+    #             # 2, (0, 0, 0), thickness=2, lineType=cv2.LINE_AA)
+    #             1.2 * pixels_per_unit / 10, (0, 0, 0), thickness=2 * pixels_per_unit // 10, lineType=cv2.LINE_AA)
+
+    return img
+
+
 if __name__ == "__main__":
+    # img_c = gen_charuco_texture(center=True)
+    # cv2.imwrite("charuco_center.png", img_c)
+    # print(img_c.shape, img_c.dtype)
+    #
+    # img_s = gen_charuco_texture(center=False)
+    # cv2.imwrite("charuco_stripes.png", img_s)
+    #
+    # plt.figure("Center", (16, 9))
+    # plt.imshow(img_c)
+    # plt.figure("Stripes", (16, 9))
+    # plt.imshow(img_s)
+    #
+    # plt.show()
+    # exit(0)
+
     data_paths = [
                     "D:/paleo-data/CALIBRATION BOARD 1e2/",
                     "D:/paleo-data/CALIBRATION BOARD 3e4/",
@@ -177,12 +231,17 @@ if __name__ == "__main__":
                     "D:/paleo-data/3 - IRREGULAR OBJECT 1/undistorted/",
                     "D:/paleo-data/4 - IRREGULAR OBJECT 2/undistorted/",
                     "D:/paleo-data/5 - BOX/undistorted/",
-                ]
+                    "D:/paleo-data/test-calib/",
+                    "D:/paleo-data/test-scan-1/undistorted/",
+                    "D:/paleo-data/test-scan-2/undistorted/",
+                    ]
 
     # filename = "D:/paleo-data/CALIBRATION BOARD 1e2/DSC00050.JPG"
     # detect_single(filename, detect_charuco, draw=True, save=False, plot=True, pre_scale=4, draw_scale=3)
 
     # for i in range(3):
-    for i in range(3, 8):
+    # for i in range(3, 8):
+    # for i in [8]:
+    for i in range(9, 11):
         detect_all(data_paths[i] + "*.JPG", detect_charuco, draw=True, save=True, pre_scale=4, draw_scale=2)
 

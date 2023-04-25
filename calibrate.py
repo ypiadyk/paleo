@@ -110,7 +110,7 @@ def reconstruct_planes(data_path, camera_calib, min_points=10, undistorted=False
     for name in sorted(charuco.keys()):
         c_obj = charuco[name]["obj"]
         c_idx = charuco[name]["idx"]
-        c_img = charuco[name]["img"].astype(np.float).reshape((-1, 2))
+        c_img = charuco[name]["img"].astype(np.float32).reshape((-1, 2))
 
         if not undistorted:
             c_img = cv2.undistortPoints(c_img.reshape((-1, 1, 2)), cam_mtx, cam_dist, P=cam_new_mtx).reshape((-1, 2))
