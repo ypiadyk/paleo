@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path
 
+from utils import *
+
 # from colour_demosaicing import demosaicing_CFA_Bayer_Malvar2004, demosaicing_CFA_Bayer_Menon2007
 
 # source: filename or file object
@@ -54,8 +56,9 @@ def demosaic(bayer, method="simple"):
 
 # target: raw image of spectrally neutral target (arw filename or rgb in 0-1 range)
 # mask_filename: png image with pixels masked red in order to be taken into account
-def find_balance(target, mask_filename, plot=True):
+def find_balance(target, mask_filename, plot=True, save=True):
     if isinstance(target, str):
+        # Crop edges to match the size of mask.png (resolution derived form camera's *.jpg images)
         img = demosaic(read_arw(target))[10:4010, 10:6010]
     else:
         img = target
@@ -82,7 +85,7 @@ def find_balance(target, mask_filename, plot=True):
     print("r: %.4f +- %.2f %%\tb: %.4f +- %.2f %%"%(bal[0], 100*dev[0]/bal[0], bal[2], 100*dev[2]/bal[2]))
 
     if plot:
-        plt.figure('target')
+        plt.figure('Target', (19, 9))
 
         plt.subplot2grid((2, 3), (0, 0))
         plt.gca().set_title('r')
@@ -97,9 +100,21 @@ def find_balance(target, mask_filename, plot=True):
         img[i, j, :] = np.array([1,0,0])
         plt.imshow(img)
         plt.tight_layout()
-        plt.show()
+
+        if save:
+            plt.savefig(target[:target.rfind("/")] + "/white_balance.png", dpi=120)
+
+    if save:
+        with open(target[:target.rfind("/")] + "/white_balance.json", "w") as f:
+            json.dump({"wb": bal,
+                       "wb_hint": ["r/g", "g", "b/g"]}, f, indent=4, cls=NumpyEncoder)
 
     return bal
+
+
+def load_wb(filename):
+    return json.load(open(filename, "r"))["wb"]
+
 
 def balance(rgb, white_balance=None, gamma=None):
     if white_balance is not None:
@@ -152,13 +167,16 @@ if __name__ == "__main__":
     # exit(0)
 
     # data_path = '/home/yurii/data/simple/white_balance/'
-    data_path = "D:/paleo-data/1 - FLAT OBJECT 1/"
-    target = data_path + 'DSC00094.ARW'
-    reference = data_path + 'DSC00094.ARW'
+    data_path = "D:/paleo-data/2 - FLAT OBJECT 2/white_balance/"
+    target = data_path + 'target.arw'
     mask = data_path + 'mask.png'
 
-    wb = find_balance(target, mask)
+    wb = find_balance(target, mask, plot=True, save=True)
 
-    plt.figure('reference')
-    plt.imshow(read_raw(reference, white_balance=wb))
+    img = read_raw(target, white_balance=wb)
+    cv2.imwrite(data_path + "balanced.png", (255 * img[10:4010, 10:6010, ::-1]).astype(np.uint8))
+
+    plt.figure('Balanced', (12, 9))
+    plt.imshow(img)
+    plt.tight_layout()
     plt.show()

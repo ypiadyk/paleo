@@ -71,12 +71,15 @@ def match_img_pair(ref, img, p, s0, s1, pad):
     w = gaus2d(x, y, sx=pad, sy=pad)
     w /= w[pad, pad]
 
+    tot_n = 0
     for i in range(p.shape[0]):
-        r = ref[p[i, 1]-pad:p[i, 1]+pad+1, p[i, 0]-pad:p[i, 0]+pad+1, :]
+        r = ref[p[i, 1]-pad:p[i, 1]+pad+1, p[i, 0]-pad:p[i, 0]+pad+1, :].astype(np.float32)
         n = np.max(np.abs(s0[i, :] - s1[i, :]))
+        tot_n += n
         ps = np.stack([np.linspace(s0[i, j], s1[i, j], n+1, dtype=np.int32) for j in [0, 1]], axis=1)
         matches.append(match_single(r, w, img, ps, pad))
 
+    print(tot_n)
     return matches
 
 
@@ -92,7 +95,8 @@ def do_matching(data_path, cam_calib, save=None, plot=False, save_figures=None, 
     imgs = [None for name in names]
 
     ref, max_h, pad = 14, 21, 25
-    px, py = np.meshgrid(np.linspace(3000, 4500, 7), np.linspace(1750, 2750, 5))#, indexing="ij")
+    # px, py = np.meshgrid(np.linspace(2000, 3500, 7), np.linspace(1750, 2750, 5))#, indexing="ij")
+    px, py = np.meshgrid(np.linspace(2990, 2996, 7), np.linspace(1990, 1994, 5))#, indexing="ij")
     all_p = np.stack([px, py], axis=2).reshape((-1, 2)).astype(np.int32)
 
     imgs[ref] = cv2.imread(data_path + "/undistorted/" + names[ref])[:, :, ::-1]
@@ -204,8 +208,8 @@ if __name__ == "__main__":
 
     cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
-    data_path = "D:/paleo-data/1 - FLAT OBJECT 1/"
-    # data_path = "D:/paleo-data/2 - FLAT OBJECT 2/"
+    # data_path = "D:/paleo-data/1 - FLAT OBJECT 1/"
+    data_path = "D:/paleo-data/2 - FLAT OBJECT 2/"
     # data_path = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
     # data_path = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
     # data_path = "D:/paleo-data/5 - BOX/"

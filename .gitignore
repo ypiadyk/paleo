@@ -1,3 +1,7 @@
 .idea
 __pycache__
 .ipynb_checkpoints
+*.pyd
+flat_fish
+matcher/build
+mask.png

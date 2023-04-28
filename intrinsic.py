@@ -118,7 +118,8 @@ def undistort_images(images_path, cam_calib):
         new_filename = images_path + "undistorted/" + os.path.basename(image)
         cv2.imwrite(new_filename, undistorted)
 
-        arw = read_raw(image[:-4] + ".ARW")[10:4010, 10:6010]
+        wb = load_wb(images_path + "white_balance/white_balance.json")
+        arw = read_raw(image[:-4] + ".ARW", white_balance=wb)[10:4010, 10:6010]
         arw = (255*arw).astype(np.uint8)
         u_arw = cv2.undistort(arw, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
         cv2.imwrite(new_filename[:-4] + ".bmp", u_arw[:, :, ::-1])
@@ -137,8 +138,8 @@ if __name__ == "__main__":
     # calibration, errors = calibrate_intrinsic(calib_data, error_thr=3.1, save=True, plot=True)
     cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
-    image_data = "D:/paleo-data/1 - FLAT OBJECT 1/"
-    # image_data = "D:/paleo-data/2 - FLAT OBJECT 2/"
+    # image_data = "D:/paleo-data/1 - FLAT OBJECT 1/"
+    image_data = "D:/paleo-data/2 - FLAT OBJECT 2/"
     # image_data = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
     # image_data = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
     # image_data = "D:/paleo-data/5 - BOX/"
