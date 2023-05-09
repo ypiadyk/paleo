@@ -1,6 +1,6 @@
 import json
 import cv2
-import cupy as cp
+# import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter
@@ -95,8 +95,9 @@ def do_matching(data_path, cam_calib, save=None, plot=False, save_figures=None, 
     imgs = [None for name in names]
 
     ref, max_h, pad = 14, 21, 25
+    px, py = np.meshgrid(np.linspace(2000, 4500, 7), np.linspace(1750, 2750, 5))#, indexing="ij")
     # px, py = np.meshgrid(np.linspace(2000, 3500, 7), np.linspace(1750, 2750, 5))#, indexing="ij")
-    px, py = np.meshgrid(np.linspace(2990, 2996, 7), np.linspace(1990, 1994, 5))#, indexing="ij")
+    # px, py = np.meshgrid(np.linspace(2990, 2996, 7), np.linspace(1990, 1994, 5))#, indexing="ij")
     all_p = np.stack([px, py], axis=2).reshape((-1, 2)).astype(np.int32)
 
     imgs[ref] = cv2.imread(data_path + "/undistorted/" + names[ref])[:, :, ::-1]

@@ -59,12 +59,12 @@ class _SwigNonDynamicMeta(type):
 
 
 
-def in_bounds_func(x, y, w, h):
-    return _matcher_module.in_bounds_func(x, y, w, h)
+def compute_diffs(rh, wh, ph, ih, mh, pad, dh):
+    return _matcher_module.compute_diffs(rh, wh, ph, ih, mh, pad, dh)
 
-def label(height, height_2, thr):
-    return _matcher_module.label(height, height_2, thr)
+def compute_diffs_avx2(rh, wh, ph, ih, mh, pad, dh):
+    return _matcher_module.compute_diffs_avx2(rh, wh, ph, ih, mh, pad, dh)
 
-def compute_diffs(rh, wh, ih, mh, pad, dh):
-    return _matcher_module.compute_diffs(rh, wh, ih, mh, pad, dh)
+def compute_diffs_avx512(rh, wh, ph, ih, mh, pad, dh):
+    return _matcher_module.compute_diffs_avx512(rh, wh, ph, ih, mh, pad, dh)
 

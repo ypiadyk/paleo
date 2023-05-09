@@ -3009,7 +3009,6 @@ static swig_module_info swig_module = {swig_types, 1, 0, 0, 0, 0};
 
     /* the resulting C file should be built as a python extension */
     #define SWIG_FILE_WITH_INIT
-    /*  Includes the header in the wrapper code */
     #include "matcher.h"
 
 
@@ -3021,194 +3020,15 @@ static swig_module_info swig_module = {swig_types, 1, 0, 0, 0, 0};
 #include <numpy/arrayobject.h>
 
 
-    /*  takes as input two numpy arrays */
-    /*void cos_doubles_func(double * in_array, int size_in, double * out_array, int size_out) {
-        cos_doubles(in_array, out_array, size_in);*/
-    int in_bounds_func(int x, int y, int w, int h) {
-        return in_bounds(x, y, w, h);
-    }
-
-
-#include <limits.h>
-#if !defined(SWIG_NO_LLONG_MAX)
-# if !defined(LLONG_MAX) && defined(__GNUC__) && defined (__LONG_LONG_MAX__)
-#   define LLONG_MAX __LONG_LONG_MAX__
-#   define LLONG_MIN (-LLONG_MAX - 1LL)
-#   define ULLONG_MAX (LLONG_MAX * 2ULL + 1ULL)
-# endif
-#endif
-
-
-SWIGINTERN int
-SWIG_AsVal_double (PyObject *obj, double *val)
-{
-  int res = SWIG_TypeError;
-  if (PyFloat_Check(obj)) {
-    if (val) *val = PyFloat_AsDouble(obj);
-    return SWIG_OK;
-#if PY_VERSION_HEX < 0x03000000
-  } else if (PyInt_Check(obj)) {
-    if (val) *val = (double) PyInt_AsLong(obj);
-    return SWIG_OK;
-#endif
-  } else if (PyLong_Check(obj)) {
-    double v = PyLong_AsDouble(obj);
-    if (!PyErr_Occurred()) {
-      if (val) *val = v;
-      return SWIG_OK;
-    } else {
-      PyErr_Clear();
-    }
-  }
-#ifdef SWIG_PYTHON_CAST_MODE
-  {
-    int dispatch = 0;
-    double d = PyFloat_AsDouble(obj);
-    if (!PyErr_Occurred()) {
-      if (val) *val = d;
-      return SWIG_AddCast(SWIG_OK);
-    } else {
-      PyErr_Clear();
-    }
-    if (!dispatch) {
-      long v = PyLong_AsLong(obj);
-      if (!PyErr_Occurred()) {
-	if (val) *val = v;
-	return SWIG_AddCast(SWIG_AddCast(SWIG_OK));
-      } else {
-	PyErr_Clear();
-      }
-    }
-  }
-#endif
-  return res;
-}
-
-
-#include <float.h>
-
-
-#include <math.h>
-
-
-SWIGINTERNINLINE int
-SWIG_CanCastAsInteger(double *d, double min, double max) {
-  double x = *d;
-  if ((min <= x && x <= max)) {
-   double fx = floor(x);
-   double cx = ceil(x);
-   double rd =  ((x - fx) < 0.5) ? fx : cx; /* simple rint */
-   if ((errno == EDOM) || (errno == ERANGE)) {
-     errno = 0;
-   } else {
-     double summ, reps, diff;
-     if (rd < x) {
-       diff = x - rd;
-     } else if (rd > x) {
-       diff = rd - x;
-     } else {
-       return 1;
-     }
-     summ = rd + x;
-     reps = diff/summ;
-     if (reps < 8*DBL_EPSILON) {
-       *d = rd;
-       return 1;
-     }
-   }
-  }
-  return 0;
-}
-
-
-SWIGINTERN int
-SWIG_AsVal_long (PyObject *obj, long* val)
-{
-#if PY_VERSION_HEX < 0x03000000
-  if (PyInt_Check(obj)) {
-    if (val) *val = PyInt_AsLong(obj);
-    return SWIG_OK;
-  } else
-#endif
-  if (PyLong_Check(obj)) {
-    long v = PyLong_AsLong(obj);
-    if (!PyErr_Occurred()) {
-      if (val) *val = v;
-      return SWIG_OK;
-    } else {
-      PyErr_Clear();
-      return SWIG_OverflowError;
-    }
-  }
-#ifdef SWIG_PYTHON_CAST_MODE
-  {
-    int dispatch = 0;
-    long v = PyInt_AsLong(obj);
-    if (!PyErr_Occurred()) {
-      if (val) *val = v;
-      return SWIG_AddCast(SWIG_OK);
-    } else {
-      PyErr_Clear();
-    }
-    if (!dispatch) {
-      double d;
-      int res = SWIG_AddCast(SWIG_AsVal_double (obj,&d));
-      if (SWIG_IsOK(res) && SWIG_CanCastAsInteger(&d, LONG_MIN, LONG_MAX)) {
-	if (val) *val = (long)(d);
-	return res;
-      }
-    }
-  }
-#endif
-  return SWIG_TypeError;
-}
-
-
-SWIGINTERN int
-SWIG_AsVal_int (PyObject * obj, int *val)
-{
-  long v;
-  int res = SWIG_AsVal_long (obj, &v);
-  if (SWIG_IsOK(res)) {
-    if ((v < INT_MIN || v > INT_MAX)) {
-      return SWIG_OverflowError;
-    } else {
-      if (val) *val = (int)(v);
-    }
-  }  
-  return res;
-}
-
-
-SWIGINTERNINLINE PyObject*
-  SWIG_From_int  (int value)
-{
-  return PyInt_FromLong((long) value);
-}
-
-
-    void label(int height, int width, unsigned int * mask, int height_2, int width_2, double * data, double thr)
+    void compute_diffs(int rh, int rw, int rd, unsigned char * r,
+                       int wh, int ww, float * w,
+                       int ph, int * ps,
+                       int ih, int iw, int id, unsigned char * img,
+                       int mh, int mw, int * ms,
+                       int pad,
+                       int dh, float* diffs)
     {
-        if (height != height_2 || width != width_2) printf("Matcher Warning: Dimensions of input arrays don't match so don't expect correct results!\n");
-        // TODO: throw("Dimensions of input arrays don't match!");
-
-        image img;
-        img.max_grey_value = 255;
-        img.width = (unsigned int)width;
-        img.height = (unsigned int)height;
-
-        img.mask = (unsigned int **) malloc(height * sizeof(unsigned int *));
-        img.data = (double **) malloc(height * sizeof(double *));
-
-        for (int i=0; i<height; i++) {
-            img.mask[i] = mask + i * width;
-            img.data[i] = data + i * width;
-        }
-
-        label_components(&img, thr);
-
-        free(img.mask);
-        free(img.data);
+        compute_diffs_scalar(r, ps, w, pad, img, iw, ms, mh, diffs);
     }
 
 
@@ -3685,111 +3505,183 @@ SWIGINTERNINLINE PyObject*
 
 
 
-    void compute_diffs(int rh, int rw, int rd, unsigned char * r,
-                       int wh, int ww, float * w,
-                       int ih, int iw, int id, unsigned char * img,
-                       int mh, int mw, int * ms,
-                       int pad,
-                       int dh, float* diffs)
+#include <limits.h>
+#if !defined(SWIG_NO_LLONG_MAX)
+# if !defined(LLONG_MAX) && defined(__GNUC__) && defined (__LONG_LONG_MAX__)
+#   define LLONG_MAX __LONG_LONG_MAX__
+#   define LLONG_MIN (-LLONG_MAX - 1LL)
+#   define ULLONG_MAX (LLONG_MAX * 2ULL + 1ULL)
+# endif
+#endif
+
+
+SWIGINTERN int
+SWIG_AsVal_double (PyObject *obj, double *val)
+{
+  int res = SWIG_TypeError;
+  if (PyFloat_Check(obj)) {
+    if (val) *val = PyFloat_AsDouble(obj);
+    return SWIG_OK;
+#if PY_VERSION_HEX < 0x03000000
+  } else if (PyInt_Check(obj)) {
+    if (val) *val = (double) PyInt_AsLong(obj);
+    return SWIG_OK;
+#endif
+  } else if (PyLong_Check(obj)) {
+    double v = PyLong_AsDouble(obj);
+    if (!PyErr_Occurred()) {
+      if (val) *val = v;
+      return SWIG_OK;
+    } else {
+      PyErr_Clear();
+    }
+  }
+#ifdef SWIG_PYTHON_CAST_MODE
+  {
+    int dispatch = 0;
+    double d = PyFloat_AsDouble(obj);
+    if (!PyErr_Occurred()) {
+      if (val) *val = d;
+      return SWIG_AddCast(SWIG_OK);
+    } else {
+      PyErr_Clear();
+    }
+    if (!dispatch) {
+      long v = PyLong_AsLong(obj);
+      if (!PyErr_Occurred()) {
+	if (val) *val = v;
+	return SWIG_AddCast(SWIG_AddCast(SWIG_OK));
+      } else {
+	PyErr_Clear();
+      }
+    }
+  }
+#endif
+  return res;
+}
+
+
+#include <float.h>
+
+
+#include <math.h>
+
+
+SWIGINTERNINLINE int
+SWIG_CanCastAsInteger(double *d, double min, double max) {
+  double x = *d;
+  if ((min <= x && x <= max)) {
+   double fx = floor(x);
+   double cx = ceil(x);
+   double rd =  ((x - fx) < 0.5) ? fx : cx; /* simple rint */
+   if ((errno == EDOM) || (errno == ERANGE)) {
+     errno = 0;
+   } else {
+     double summ, reps, diff;
+     if (rd < x) {
+       diff = x - rd;
+     } else if (rd > x) {
+       diff = rd - x;
+     } else {
+       return 1;
+     }
+     summ = rd + x;
+     reps = diff/summ;
+     if (reps < 8*DBL_EPSILON) {
+       *d = rd;
+       return 1;
+     }
+   }
+  }
+  return 0;
+}
+
+
+SWIGINTERN int
+SWIG_AsVal_long (PyObject *obj, long* val)
+{
+#if PY_VERSION_HEX < 0x03000000
+  if (PyInt_Check(obj)) {
+    if (val) *val = PyInt_AsLong(obj);
+    return SWIG_OK;
+  } else
+#endif
+  if (PyLong_Check(obj)) {
+    long v = PyLong_AsLong(obj);
+    if (!PyErr_Occurred()) {
+      if (val) *val = v;
+      return SWIG_OK;
+    } else {
+      PyErr_Clear();
+      return SWIG_OverflowError;
+    }
+  }
+#ifdef SWIG_PYTHON_CAST_MODE
+  {
+    int dispatch = 0;
+    long v = PyInt_AsLong(obj);
+    if (!PyErr_Occurred()) {
+      if (val) *val = v;
+      return SWIG_AddCast(SWIG_OK);
+    } else {
+      PyErr_Clear();
+    }
+    if (!dispatch) {
+      double d;
+      int res = SWIG_AddCast(SWIG_AsVal_double (obj,&d));
+      if (SWIG_IsOK(res) && SWIG_CanCastAsInteger(&d, LONG_MIN, LONG_MAX)) {
+	if (val) *val = (long)(d);
+	return res;
+      }
+    }
+  }
+#endif
+  return SWIG_TypeError;
+}
+
+
+SWIGINTERN int
+SWIG_AsVal_int (PyObject * obj, int *val)
+{
+  long v;
+  int res = SWIG_AsVal_long (obj, &v);
+  if (SWIG_IsOK(res)) {
+    if ((v < INT_MIN || v > INT_MAX)) {
+      return SWIG_OverflowError;
+    } else {
+      if (val) *val = (int)(v);
+    }
+  }  
+  return res;
+}
+
+
+    void compute_diffs_avx2(int rh, int rw, int rd, unsigned char * r,
+                            int wh, int ww, int wd, unsigned short * w,
+                            int ph, int * ps,
+                            int ih, int iw, int id, unsigned char * img,
+                            int mh, int mw, int * ms,
+                            int pad,
+                            int dh, float* diffs)
     {
-//         printf("In\n");
-        compute_diffs_c(r, w, pad, img, iw, ih, ms, mh, diffs);
+        compute_diffs_simd_avx2(r, ps, w, ww, pad, img, iw, ms, mh, diffs);
+    }
+
+
+    void compute_diffs_avx512(int rh, int rw, int rd, unsigned char * r,
+                              int wh, int ww, int wd, unsigned short * w,
+                              int ph, int * ps,
+                              int ih, int iw, int id, unsigned char * img,
+                              int mh, int mw, int * ms,
+                              int pad,
+                              int dh, float* diffs)
+    {
+        compute_diffs_simd_avx512(r, ps, w, ww, pad, img, iw, ms, mh, diffs);
     }
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-SWIGINTERN PyObject *_wrap_in_bounds_func(PyObject *self, PyObject *args) {
-  PyObject *resultobj = 0;
-  int arg1 ;
-  int arg2 ;
-  int arg3 ;
-  int arg4 ;
-  int val1 ;
-  int ecode1 = 0 ;
-  int val2 ;
-  int ecode2 = 0 ;
-  int val3 ;
-  int ecode3 = 0 ;
-  int val4 ;
-  int ecode4 = 0 ;
-  PyObject *swig_obj[4] ;
-  int result;
-  
-  if (!SWIG_Python_UnpackTuple(args, "in_bounds_func", 4, 4, swig_obj)) SWIG_fail;
-  ecode1 = SWIG_AsVal_int(swig_obj[0], &val1);
-  if (!SWIG_IsOK(ecode1)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode1), "in method '" "in_bounds_func" "', argument " "1"" of type '" "int""'");
-  } 
-  arg1 = (int)(val1);
-  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
-  if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "in_bounds_func" "', argument " "2"" of type '" "int""'");
-  } 
-  arg2 = (int)(val2);
-  ecode3 = SWIG_AsVal_int(swig_obj[2], &val3);
-  if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "in_bounds_func" "', argument " "3"" of type '" "int""'");
-  } 
-  arg3 = (int)(val3);
-  ecode4 = SWIG_AsVal_int(swig_obj[3], &val4);
-  if (!SWIG_IsOK(ecode4)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "in_bounds_func" "', argument " "4"" of type '" "int""'");
-  } 
-  arg4 = (int)(val4);
-  result = (int)in_bounds_func(arg1,arg2,arg3,arg4);
-  resultobj = SWIG_From_int((int)(result));
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
-SWIGINTERN PyObject *_wrap_label(PyObject *self, PyObject *args) {
-  PyObject *resultobj = 0;
-  int arg1 ;
-  int arg2 ;
-  unsigned int *arg3 = (unsigned int *) 0 ;
-  int arg4 ;
-  int arg5 ;
-  double *arg6 = (double *) 0 ;
-  double arg7 ;
-  PyArrayObject *array1 = NULL ;
-  PyArrayObject *array4 = NULL ;
-  double val7 ;
-  int ecode7 = 0 ;
-  PyObject *swig_obj[3] ;
-  
-  if (!SWIG_Python_UnpackTuple(args, "label", 3, 3, swig_obj)) SWIG_fail;
-  {
-    array1 = obj_to_array_no_conversion(swig_obj[0], NPY_UINT);
-    if (!array1 || !require_dimensions(array1,2) || !require_contiguous(array1) ||
-      !require_native(array1)) SWIG_fail;
-    arg1 = (int) array_size(array1,0);
-    arg2 = (int) array_size(array1,1);
-    arg3 = (unsigned int*) array_data(array1);
-  }
-  {
-    array4 = obj_to_array_no_conversion(swig_obj[1], NPY_DOUBLE);
-    if (!array4 || !require_dimensions(array4,2) || !require_contiguous(array4) ||
-      !require_native(array4)) SWIG_fail;
-    arg4 = (int) array_size(array4,0);
-    arg5 = (int) array_size(array4,1);
-    arg6 = (double*) array_data(array4);
-  }
-  ecode7 = SWIG_AsVal_double(swig_obj[2], &val7);
-  if (!SWIG_IsOK(ecode7)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "label" "', argument " "7"" of type '" "double""'");
-  } 
-  arg7 = (double)(val7);
-  label(arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-  resultobj = SWIG_Py_Void();
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
 SWIGINTERN PyObject *_wrap_compute_diffs(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   int arg1 ;
@@ -3800,26 +3692,30 @@ SWIGINTERN PyObject *_wrap_compute_diffs(PyObject *self, PyObject *args) {
   int arg6 ;
   float *arg7 = (float *) 0 ;
   int arg8 ;
-  int arg9 ;
+  int *arg9 = (int *) 0 ;
   int arg10 ;
-  unsigned char *arg11 = (unsigned char *) 0 ;
+  int arg11 ;
   int arg12 ;
-  int arg13 ;
-  int *arg14 = (int *) 0 ;
+  unsigned char *arg13 = (unsigned char *) 0 ;
+  int arg14 ;
   int arg15 ;
-  int arg16 ;
-  float *arg17 = (float *) 0 ;
+  int *arg16 = (int *) 0 ;
+  int arg17 ;
+  int arg18 ;
+  float *arg19 = (float *) 0 ;
   PyArrayObject *array1 = NULL ;
   PyArrayObject *array5 = NULL ;
   PyArrayObject *array8 = NULL ;
-  PyArrayObject *array12 = NULL ;
-  int val15 ;
-  int ecode15 = 0 ;
-  PyArrayObject *array16 = NULL ;
-  int i16 = 0 ;
-  PyObject *swig_obj[6] ;
+  int i8 = 0 ;
+  PyArrayObject *array10 = NULL ;
+  PyArrayObject *array14 = NULL ;
+  int val17 ;
+  int ecode17 = 0 ;
+  PyArrayObject *array18 = NULL ;
+  int i18 = 0 ;
+  PyObject *swig_obj[7] ;
   
-  if (!SWIG_Python_UnpackTuple(args, "compute_diffs", 6, 6, swig_obj)) SWIG_fail;
+  if (!SWIG_Python_UnpackTuple(args, "compute_diffs", 7, 7, swig_obj)) SWIG_fail;
   {
     array1 = obj_to_array_no_conversion(swig_obj[0], NPY_UBYTE);
     if (!array1 || !require_dimensions(array1,3) || !require_contiguous(array1)
@@ -3838,36 +3734,242 @@ SWIGINTERN PyObject *_wrap_compute_diffs(PyObject *self, PyObject *args) {
     arg7 = (float*) array_data(array5);
   }
   {
-    array8 = obj_to_array_no_conversion(swig_obj[2], NPY_UBYTE);
-    if (!array8 || !require_dimensions(array8,3) || !require_contiguous(array8)
+    array8 = obj_to_array_no_conversion(swig_obj[2], NPY_INT);
+    if (!array8 || !require_dimensions(array8,1) || !require_contiguous(array8)
       || !require_native(array8)) SWIG_fail;
-    arg8 = (int) array_size(array8,0);
-    arg9 = (int) array_size(array8,1);
-    arg10 = (int) array_size(array8,2);
-    arg11 = (unsigned char*) array_data(array8);
+    arg8 = 1;
+    for (i8=0; i8 < array_numdims(array8); ++i8) arg8 *= array_size(array8,i8);
+    arg9 = (int*) array_data(array8);
   }
   {
-    array12 = obj_to_array_no_conversion(swig_obj[3], NPY_INT);
-    if (!array12 || !require_dimensions(array12,2) || !require_contiguous(array12) ||
-      !require_native(array12)) SWIG_fail;
-    arg12 = (int) array_size(array12,0);
-    arg13 = (int) array_size(array12,1);
-    arg14 = (int*) array_data(array12);
+    array10 = obj_to_array_no_conversion(swig_obj[3], NPY_UBYTE);
+    if (!array10 || !require_dimensions(array10,3) || !require_contiguous(array10)
+      || !require_native(array10)) SWIG_fail;
+    arg10 = (int) array_size(array10,0);
+    arg11 = (int) array_size(array10,1);
+    arg12 = (int) array_size(array10,2);
+    arg13 = (unsigned char*) array_data(array10);
   }
-  ecode15 = SWIG_AsVal_int(swig_obj[4], &val15);
-  if (!SWIG_IsOK(ecode15)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode15), "in method '" "compute_diffs" "', argument " "15"" of type '" "int""'");
+  {
+    array14 = obj_to_array_no_conversion(swig_obj[4], NPY_INT);
+    if (!array14 || !require_dimensions(array14,2) || !require_contiguous(array14) ||
+      !require_native(array14)) SWIG_fail;
+    arg14 = (int) array_size(array14,0);
+    arg15 = (int) array_size(array14,1);
+    arg16 = (int*) array_data(array14);
+  }
+  ecode17 = SWIG_AsVal_int(swig_obj[5], &val17);
+  if (!SWIG_IsOK(ecode17)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode17), "in method '" "compute_diffs" "', argument " "17"" of type '" "int""'");
   } 
-  arg15 = (int)(val15);
+  arg17 = (int)(val17);
   {
-    array16 = obj_to_array_no_conversion(swig_obj[5], NPY_FLOAT);
-    if (!array16 || !require_dimensions(array16,1) || !require_contiguous(array16)
-      || !require_native(array16)) SWIG_fail;
-    arg16 = 1;
-    for (i16=0; i16 < array_numdims(array16); ++i16) arg16 *= array_size(array16,i16);
-    arg17 = (float*) array_data(array16);
+    array18 = obj_to_array_no_conversion(swig_obj[6], NPY_FLOAT);
+    if (!array18 || !require_dimensions(array18,1) || !require_contiguous(array18)
+      || !require_native(array18)) SWIG_fail;
+    arg18 = 1;
+    for (i18=0; i18 < array_numdims(array18); ++i18) arg18 *= array_size(array18,i18);
+    arg19 = (float*) array_data(array18);
   }
-  compute_diffs(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17);
+  compute_diffs(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_compute_diffs_avx2(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  int arg1 ;
+  int arg2 ;
+  int arg3 ;
+  unsigned char *arg4 = (unsigned char *) 0 ;
+  int arg5 ;
+  int arg6 ;
+  int arg7 ;
+  unsigned short *arg8 = (unsigned short *) 0 ;
+  int arg9 ;
+  int *arg10 = (int *) 0 ;
+  int arg11 ;
+  int arg12 ;
+  int arg13 ;
+  unsigned char *arg14 = (unsigned char *) 0 ;
+  int arg15 ;
+  int arg16 ;
+  int *arg17 = (int *) 0 ;
+  int arg18 ;
+  int arg19 ;
+  float *arg20 = (float *) 0 ;
+  PyArrayObject *array1 = NULL ;
+  PyArrayObject *array5 = NULL ;
+  PyArrayObject *array9 = NULL ;
+  int i9 = 0 ;
+  PyArrayObject *array11 = NULL ;
+  PyArrayObject *array15 = NULL ;
+  int val18 ;
+  int ecode18 = 0 ;
+  PyArrayObject *array19 = NULL ;
+  int i19 = 0 ;
+  PyObject *swig_obj[7] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "compute_diffs_avx2", 7, 7, swig_obj)) SWIG_fail;
+  {
+    array1 = obj_to_array_no_conversion(swig_obj[0], NPY_UBYTE);
+    if (!array1 || !require_dimensions(array1,3) || !require_contiguous(array1)
+      || !require_native(array1)) SWIG_fail;
+    arg1 = (int) array_size(array1,0);
+    arg2 = (int) array_size(array1,1);
+    arg3 = (int) array_size(array1,2);
+    arg4 = (unsigned char*) array_data(array1);
+  }
+  {
+    array5 = obj_to_array_no_conversion(swig_obj[1], NPY_USHORT);
+    if (!array5 || !require_dimensions(array5,3) || !require_contiguous(array5)
+      || !require_native(array5)) SWIG_fail;
+    arg5 = (int) array_size(array5,0);
+    arg6 = (int) array_size(array5,1);
+    arg7 = (int) array_size(array5,2);
+    arg8 = (unsigned short*) array_data(array5);
+  }
+  {
+    array9 = obj_to_array_no_conversion(swig_obj[2], NPY_INT);
+    if (!array9 || !require_dimensions(array9,1) || !require_contiguous(array9)
+      || !require_native(array9)) SWIG_fail;
+    arg9 = 1;
+    for (i9=0; i9 < array_numdims(array9); ++i9) arg9 *= array_size(array9,i9);
+    arg10 = (int*) array_data(array9);
+  }
+  {
+    array11 = obj_to_array_no_conversion(swig_obj[3], NPY_UBYTE);
+    if (!array11 || !require_dimensions(array11,3) || !require_contiguous(array11)
+      || !require_native(array11)) SWIG_fail;
+    arg11 = (int) array_size(array11,0);
+    arg12 = (int) array_size(array11,1);
+    arg13 = (int) array_size(array11,2);
+    arg14 = (unsigned char*) array_data(array11);
+  }
+  {
+    array15 = obj_to_array_no_conversion(swig_obj[4], NPY_INT);
+    if (!array15 || !require_dimensions(array15,2) || !require_contiguous(array15) ||
+      !require_native(array15)) SWIG_fail;
+    arg15 = (int) array_size(array15,0);
+    arg16 = (int) array_size(array15,1);
+    arg17 = (int*) array_data(array15);
+  }
+  ecode18 = SWIG_AsVal_int(swig_obj[5], &val18);
+  if (!SWIG_IsOK(ecode18)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode18), "in method '" "compute_diffs_avx2" "', argument " "18"" of type '" "int""'");
+  } 
+  arg18 = (int)(val18);
+  {
+    array19 = obj_to_array_no_conversion(swig_obj[6], NPY_FLOAT);
+    if (!array19 || !require_dimensions(array19,1) || !require_contiguous(array19)
+      || !require_native(array19)) SWIG_fail;
+    arg19 = 1;
+    for (i19=0; i19 < array_numdims(array19); ++i19) arg19 *= array_size(array19,i19);
+    arg20 = (float*) array_data(array19);
+  }
+  compute_diffs_avx2(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_compute_diffs_avx512(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  int arg1 ;
+  int arg2 ;
+  int arg3 ;
+  unsigned char *arg4 = (unsigned char *) 0 ;
+  int arg5 ;
+  int arg6 ;
+  int arg7 ;
+  unsigned short *arg8 = (unsigned short *) 0 ;
+  int arg9 ;
+  int *arg10 = (int *) 0 ;
+  int arg11 ;
+  int arg12 ;
+  int arg13 ;
+  unsigned char *arg14 = (unsigned char *) 0 ;
+  int arg15 ;
+  int arg16 ;
+  int *arg17 = (int *) 0 ;
+  int arg18 ;
+  int arg19 ;
+  float *arg20 = (float *) 0 ;
+  PyArrayObject *array1 = NULL ;
+  PyArrayObject *array5 = NULL ;
+  PyArrayObject *array9 = NULL ;
+  int i9 = 0 ;
+  PyArrayObject *array11 = NULL ;
+  PyArrayObject *array15 = NULL ;
+  int val18 ;
+  int ecode18 = 0 ;
+  PyArrayObject *array19 = NULL ;
+  int i19 = 0 ;
+  PyObject *swig_obj[7] ;
+  
+  if (!SWIG_Python_UnpackTuple(args, "compute_diffs_avx512", 7, 7, swig_obj)) SWIG_fail;
+  {
+    array1 = obj_to_array_no_conversion(swig_obj[0], NPY_UBYTE);
+    if (!array1 || !require_dimensions(array1,3) || !require_contiguous(array1)
+      || !require_native(array1)) SWIG_fail;
+    arg1 = (int) array_size(array1,0);
+    arg2 = (int) array_size(array1,1);
+    arg3 = (int) array_size(array1,2);
+    arg4 = (unsigned char*) array_data(array1);
+  }
+  {
+    array5 = obj_to_array_no_conversion(swig_obj[1], NPY_USHORT);
+    if (!array5 || !require_dimensions(array5,3) || !require_contiguous(array5)
+      || !require_native(array5)) SWIG_fail;
+    arg5 = (int) array_size(array5,0);
+    arg6 = (int) array_size(array5,1);
+    arg7 = (int) array_size(array5,2);
+    arg8 = (unsigned short*) array_data(array5);
+  }
+  {
+    array9 = obj_to_array_no_conversion(swig_obj[2], NPY_INT);
+    if (!array9 || !require_dimensions(array9,1) || !require_contiguous(array9)
+      || !require_native(array9)) SWIG_fail;
+    arg9 = 1;
+    for (i9=0; i9 < array_numdims(array9); ++i9) arg9 *= array_size(array9,i9);
+    arg10 = (int*) array_data(array9);
+  }
+  {
+    array11 = obj_to_array_no_conversion(swig_obj[3], NPY_UBYTE);
+    if (!array11 || !require_dimensions(array11,3) || !require_contiguous(array11)
+      || !require_native(array11)) SWIG_fail;
+    arg11 = (int) array_size(array11,0);
+    arg12 = (int) array_size(array11,1);
+    arg13 = (int) array_size(array11,2);
+    arg14 = (unsigned char*) array_data(array11);
+  }
+  {
+    array15 = obj_to_array_no_conversion(swig_obj[4], NPY_INT);
+    if (!array15 || !require_dimensions(array15,2) || !require_contiguous(array15) ||
+      !require_native(array15)) SWIG_fail;
+    arg15 = (int) array_size(array15,0);
+    arg16 = (int) array_size(array15,1);
+    arg17 = (int*) array_data(array15);
+  }
+  ecode18 = SWIG_AsVal_int(swig_obj[5], &val18);
+  if (!SWIG_IsOK(ecode18)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode18), "in method '" "compute_diffs_avx512" "', argument " "18"" of type '" "int""'");
+  } 
+  arg18 = (int)(val18);
+  {
+    array19 = obj_to_array_no_conversion(swig_obj[6], NPY_FLOAT);
+    if (!array19 || !require_dimensions(array19,1) || !require_contiguous(array19)
+      || !require_native(array19)) SWIG_fail;
+    arg19 = 1;
+    for (i19=0; i19 < array_numdims(array19); ++i19) arg19 *= array_size(array19,i19);
+    arg20 = (float*) array_data(array19);
+  }
+  compute_diffs_avx512(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20);
   resultobj = SWIG_Py_Void();
   return resultobj;
 fail:
@@ -3876,9 +3978,9 @@ fail:
 
 
 static PyMethodDef SwigMethods[] = {
-	 { "in_bounds_func", _wrap_in_bounds_func, METH_VARARGS, NULL},
-	 { "label", _wrap_label, METH_VARARGS, NULL},
 	 { "compute_diffs", _wrap_compute_diffs, METH_VARARGS, NULL},
+	 { "compute_diffs_avx2", _wrap_compute_diffs_avx2, METH_VARARGS, NULL},
+	 { "compute_diffs_avx512", _wrap_compute_diffs_avx512, METH_VARARGS, NULL},
 	 { NULL, NULL, 0, NULL }
 };
 

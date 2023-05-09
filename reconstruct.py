@@ -1,25 +1,9 @@
-import joblib.parallel
-import matplotlib.pyplot as plt
-import numpy as np
-
 from utils import *
 from calibrate import *
-from scipy.ndimage.filters import uniform_filter, generic_filter
+from scipy.ndimage.filters import uniform_filter
 
-import matcher.matcher_module
-
-
-# def patch_scores(ps, ref, pad):
-#     scores = []
-#
-#     for i in range(ps.shape[0]):
-#         if i % 100_000 == 0:
-#             print(i)
-#
-#         patch = ref[ps[i, 1]-pad:ps[i, 1]+pad+1, ps[i, 0]-pad:ps[i, 0]+pad+1, :].reshape((-1, 3))
-#         scores.append(np.sum(np.std(patch, axis=0) / (np.mean(patch, axis=0) + 0.1)))
-#
-#     return np.array(scores)
+import matcher.matcher_module as mm
+simd_pad = 5  # Results in 15 extra pixels
 
 
 def patch_scores_fast(ref, roi, pad):
@@ -58,50 +42,45 @@ def map_to(p, off, ref_O, ref_B, O, B, mtx):
 
 
 def compute_diffs(r, w, img, ms, pad):
-    r = r.astype(np.float32)
     diffs = []
+
     for mi in range(ms.shape[0]):
         patch = img[ms[mi, 1] - pad:ms[mi, 1] + pad + 1, ms[mi, 0] - pad:ms[mi, 0] + pad + 1, :]
-        loss = w[:, :, None] * (r - patch) ** 2
-        diffs.append(np.average(loss))
+        diffs.append(np.average(w[:, :, None] * (r - patch) ** 2))
 
     return np.array(diffs)
 
 
-def compute_diffs_fast(r, w, img, ms, pad):
-    if ms.shape[0] == 0:
-        print("Zero")
-        return None
-
-    diffs = np.zeros(ms.shape[0], dtype=np.float32)
-    r = np.ascontiguousarray(r)
-
-    matcher.matcher_module.compute_diffs(r, w, img, ms, pad, diffs)
-
-    return diffs
+def gaus2d(x, y, mx=0, my=0, sx=1, sy=1):
+    return 1. / (2. * np.pi * sx * sy) * \
+           np.exp(-((x - mx) ** 2. / (2. * sx ** 2.) + (y - my) ** 2. / (2. * sy ** 2.)))
 
 
 def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
     cache_filenane = filename[:-4] + ".npy"
-    if os.path.exists(cache_filenane):
-        print("Already exists:", cache_filenane)
-        return np.load(cache_filenane)
+    # if os.path.exists(cache_filenane):
+    #     print("Already exists:", cache_filenane)
+    #     return np.load(cache_filenane)
 
     if ps.shape[0] == 0:
         return None
 
-    # Define normalized 2D gaussian for weights matrix
-    def gaus2d(x, y, mx=0, my=0, sx=1, sy=1):
-        return 1. / (2. * np.pi * sx * sy) * np.exp(
-            -((x - mx) ** 2. / (2. * sx ** 2.) + (y - my) ** 2. / (2. * sy ** 2.)))
+    # Arrays must be contiguous for use with C extensions
+    img = np.ascontiguousarray(cv2.imread(filename)[:, :, ::-1])
 
+    # Prep weights matrix
     x1 = np.linspace(-pad, pad, 2*pad+1)
     x, y = np.meshgrid(x1, x1)
     w = gaus2d(x, y, sx=pad, sy=pad)
     w /= w[pad, pad]
     w = w.astype(np.float32)
+    # print("w:", w.shape, w.dtype, "\n", w)
 
-    img = np.ascontiguousarray(cv2.imread(filename)[:, :, ::-1])
+    # Prepare 16 bit packed and padded version for simd optimized functions
+    w_f = np.concatenate([w, np.zeros((w.shape[0], simd_pad), dtype=np.float32)], axis=1)
+    w_f = np.repeat(w_f[:, :, None], 3, axis=2)
+    w_f16 = np.ascontiguousarray(w_f.astype(np.float16)).view(np.uint16)
+    # print("w_f16:", w_f16.shape, w_f16.dtype)
 
     if plot:
         plt.figure("Diffs " + filename, (16, 9))
@@ -111,7 +90,6 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
         if pi % 100_000 == 0:
             print(pi, "/", ps.shape[0], "-", filename)
 
-        r = ref[ps[pi, 1]-pad:ps[pi, 1]+pad+1, ps[pi, 0]-pad:ps[pi, 0]+pad+1, :]
         n = np.max(np.abs(s0[pi, :] - s1[pi, :]))
 
         if n == 0:
@@ -121,12 +99,13 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
 
         ms = np.stack([np.linspace(s0[pi, j], s1[pi, j], n+1, dtype=np.int32) for j in [0, 1]], axis=1)
 
-        # diffs = compute_diffs(r, w, img, ms, pad)
-        diffs = compute_diffs_fast(r, w, img, ms, pad)
+        # r = ref[ps[pi, 1] - pad:ps[pi, 1] + pad + 1, ps[pi, 0] - pad:ps[pi, 0] + pad + 1, :].astype(np.float32)
+        # diffs = compute_diffs(r, w, img, ms, pad)  # Slow Python/numpy speed
 
-        if diffs is None:
-            stats.append((1, 0, 0, 1000, 0))
-            continue
+        diffs = np.zeros(ms.shape[0], dtype=np.float32)
+        # mm.compute_diffs(ref, w, ps[pi, :], img, ms, pad, diffs)  # 10x speedup (C)
+        mm.compute_diffs_avx2(ref, w_f16, ps[pi, :], img, ms, pad, diffs)  # 25x speedup (C + AVX2 SIMD)
+        # mm.compute_diffs_avx512(ref, w_f16, ps[pi, :], img, ms, pad, diffs)  # 30x speedup (C + AVX512 SIMD)
 
         mean, std = np.mean(diffs), np.std(diffs)
         x = np.linspace(0, max_h, diffs.shape[0], dtype=np.float32)
@@ -135,9 +114,11 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
             plt.plot(x, diffs)
 
         span, am = np.max(diffs) - np.min(diffs), np.argmin(diffs)
-        contrast, priority = span / (diffs[am] + 0.1), 1 / (diffs[am] + 0.1)
+        contrast = span / (diffs[am] + 0.1)
+        priority = 1 / (diffs[am] + 0.1)
+        resolution = float(n)
 
-        stats.append((mean, std, x[am], diffs[am], contrast * priority))
+        stats.append((mean, std, x[am], diffs[am], contrast * priority * resolution))
 
     if len(stats) == 0:
         return None
@@ -159,8 +140,9 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
     ref = np.ascontiguousarray(cv2.imread(data_path + "/undistorted/" + names[ref_id])[:, :, ::-1])
     h, w, _ = ref.shape
 
-    assert pad < roi[0] and roi[2] < w - pad and \
-           pad < roi[1] and roi[3] < h - pad and \
+    # Extra simd_pad horizontal pixels (RGB) for SIMD padding
+    assert pad < roi[0] and roi[2] < w - pad - 1 - simd_pad and \
+           pad < roi[1] and roi[3] < h - pad - 1 and \
            roi[0] < roi[2] and roi[1] < roi[3], "Invalid ROI"
 
     px, py = np.meshgrid(np.linspace(roi[0], roi[2], roi[2] - roi[0] + 1, dtype=np.int32),
@@ -169,8 +151,6 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
     all_ps = np.stack([px, py], axis=2).reshape((-1, 2))
     print(px.shape, all_ps.shape)
 
-    # scores = patch_scores(all_ps, ref, pad)
-    # Or compute scores more quickly:
     scores = patch_scores_fast(ref, roi, pad)
 
     good_idx = np.nonzero(scores > score_thr)[0]
@@ -194,30 +174,39 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
         if save_figures:
             plt.savefig("mask.png", dpi=400)
 
-    # return
+    map_jobs = [joblib.delayed(map_to)(good_ps, max_h, O[ref_id], B[ref_id], O[i], B[i], cam_calib["new_mtx"])
+                for i in range(len(names)) if i != ref_id]
 
-    jobs, all_idx = [], []
+    ss = joblib.Parallel(verbose=15, n_jobs=-1)(map_jobs)
+
+    print("Mapped points")
+
+    jobs, all_idx, lengths = [], [], []
     for i, name in enumerate(names):
         if i == ref_id:
             continue
 
-        s0, s1 = map_to(good_ps, max_h, O[ref_id], B[ref_id], O[i], B[i], cam_calib["new_mtx"])
+        s0, s1 = ss[i if i < ref_id else i-1]
 
-        pad2 = pad + 2
-        inside = (pad2 < s0[:, 0]) & (s0[:, 0] < w - pad2) & (pad2 < s0[:, 1]) & (s0[:, 1] < h - pad2) & \
-                 (pad2 < s1[:, 0]) & (s1[:, 0] < w - pad2) & (pad2 < s1[:, 1]) & (s1[:, 1] < h - pad2)
+        pad_x, pad_y = pad + 1 + simd_pad, pad + 1
+        inside = (pad < s0[:, 0]) & (s0[:, 0] < w - pad_x) & (pad < s0[:, 1]) & (s0[:, 1] < h - pad_y) & \
+                 (pad < s1[:, 0]) & (s1[:, 0] < w - pad_x) & (pad < s1[:, 1]) & (s1[:, 1] < h - pad_y)
         idx = np.nonzero(inside)[0]
         all_idx.append(idx)
         print(i, idx.shape)
 
         ps, s0, s1 = good_ps[idx, :], np.round(s0[idx, :]).astype(np.int32), np.round(s1[idx, :]).astype(np.int32)
 
-        # if i == 0:
-        # process_pair(ref, ps, data_path + "/undistorted/" + name, s0, s1, pad, max_h, plot=True)
-
         jobs.append(joblib.delayed(process_pair)(ref, ps, data_path + "/undistorted/" + name, s0, s1, pad, max_h))
+        lengths.append(idx.shape[0])
 
-    stats = joblib.Parallel(verbose=15, n_jobs=-2)(jobs)
+    order = np.argsort(np.array(lengths)).tolist()
+    jobs = [jobs[i] for i in reversed(order)]
+    all_idx = [all_idx[i] for i in reversed(order)]
+
+    stats = joblib.Parallel(verbose=15, n_jobs=-1)(jobs)
+
+    print("Computed stats")
 
     all_stats = np.zeros((good_ps.shape[0], len(names)-1, 1+5), dtype=np.float16)
     for i, stat in enumerate(stats):
@@ -227,6 +216,8 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
         if stat is not None:
             all_stats[idx, i, 1:] = stat
             all_stats[idx, i, 0] = 1
+
+    print("Merged stats")
 
     height = np.zeros(good_ps.shape[0], dtype=np.float32)
 
@@ -251,6 +242,8 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
 
     all_height[good_idx] = height
     all_height = all_height.reshape((rh, rw))
+
+    print("Computed heights")
 
     if save:
         np.save("height.npy", all_height)
@@ -279,6 +272,8 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
         if save_figures:
             plt.savefig("height_hist.png", dpi=120)
 
+    print("Done reconstructing")
+
 
 if __name__ == "__main__":
     calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
@@ -296,8 +291,9 @@ if __name__ == "__main__":
     # data_path = "D:/paleo-data/test-scan-1/"
     # data_path = "D:/paleo-data/test-scan-2/"
 
-    roi_reconstruct(data_path, cam_calib, (1550, 1450, 3550, 2450), 6, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (1700, 1700, 1750, 1750), 6, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (1550, 1450, 3550, 2450), 6, save=True, plot=True, save_figures=False)
+    # roi_reconstruct(data_path, cam_calib, (1700, 1700, 1750, 1750), 6, save=False, plot=True, save_figures=False)
+    roi_reconstruct(data_path, cam_calib, (3000, 2000, 3050, 2050), 21, save=False, plot=True, save_figures=False)
     # roi_reconstruct(data_path, cam_calib, (2990, 1990, 2996, 1994), 21, save=True, plot=True, save_figures=True)
 
     plt.show()

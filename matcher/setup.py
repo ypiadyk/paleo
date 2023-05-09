@@ -9,4 +9,5 @@ import numpy
 
 setup(ext_modules=[Extension("_matcher_module",
       sources=["matcher.c", "matcher.i"],
+      extra_compile_args=["/O2"],
       include_dirs=[numpy.get_include()])])

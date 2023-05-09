@@ -9,6 +9,7 @@ import shutil
 import OpenEXR
 import subprocess
 import numpy as np
+import joblib.parallel
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
