@@ -3026,7 +3026,7 @@ static swig_module_info swig_module = {swig_types, 1, 0, 0, 0, 0};
                        int ih, int iw, int id, unsigned char * img,
                        int mh, int mw, int * ms,
                        int pad,
-                       int dh, float* diffs)
+                       int dh, double* diffs)
     {
         compute_diffs_scalar(r, ps, w, pad, img, iw, ms, mh, diffs);
     }
@@ -3662,7 +3662,7 @@ SWIG_AsVal_int (PyObject * obj, int *val)
                             int ih, int iw, int id, unsigned char * img,
                             int mh, int mw, int * ms,
                             int pad,
-                            int dh, float* diffs)
+                            int dh, double* diffs)
     {
         compute_diffs_simd_avx2(r, ps, w, ww, pad, img, iw, ms, mh, diffs);
     }
@@ -3674,7 +3674,7 @@ SWIG_AsVal_int (PyObject * obj, int *val)
                               int ih, int iw, int id, unsigned char * img,
                               int mh, int mw, int * ms,
                               int pad,
-                              int dh, float* diffs)
+                              int dh, double* diffs)
     {
         compute_diffs_simd_avx512(r, ps, w, ww, pad, img, iw, ms, mh, diffs);
     }
@@ -3702,7 +3702,7 @@ SWIGINTERN PyObject *_wrap_compute_diffs(PyObject *self, PyObject *args) {
   int *arg16 = (int *) 0 ;
   int arg17 ;
   int arg18 ;
-  float *arg19 = (float *) 0 ;
+  double *arg19 = (double *) 0 ;
   PyArrayObject *array1 = NULL ;
   PyArrayObject *array5 = NULL ;
   PyArrayObject *array8 = NULL ;
@@ -3764,12 +3764,12 @@ SWIGINTERN PyObject *_wrap_compute_diffs(PyObject *self, PyObject *args) {
   } 
   arg17 = (int)(val17);
   {
-    array18 = obj_to_array_no_conversion(swig_obj[6], NPY_FLOAT);
+    array18 = obj_to_array_no_conversion(swig_obj[6], NPY_DOUBLE);
     if (!array18 || !require_dimensions(array18,1) || !require_contiguous(array18)
       || !require_native(array18)) SWIG_fail;
     arg18 = 1;
     for (i18=0; i18 < array_numdims(array18); ++i18) arg18 *= array_size(array18,i18);
-    arg19 = (float*) array_data(array18);
+    arg19 = (double*) array_data(array18);
   }
   compute_diffs(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19);
   resultobj = SWIG_Py_Void();
@@ -3800,7 +3800,7 @@ SWIGINTERN PyObject *_wrap_compute_diffs_avx2(PyObject *self, PyObject *args) {
   int *arg17 = (int *) 0 ;
   int arg18 ;
   int arg19 ;
-  float *arg20 = (float *) 0 ;
+  double *arg20 = (double *) 0 ;
   PyArrayObject *array1 = NULL ;
   PyArrayObject *array5 = NULL ;
   PyArrayObject *array9 = NULL ;
@@ -3863,12 +3863,12 @@ SWIGINTERN PyObject *_wrap_compute_diffs_avx2(PyObject *self, PyObject *args) {
   } 
   arg18 = (int)(val18);
   {
-    array19 = obj_to_array_no_conversion(swig_obj[6], NPY_FLOAT);
+    array19 = obj_to_array_no_conversion(swig_obj[6], NPY_DOUBLE);
     if (!array19 || !require_dimensions(array19,1) || !require_contiguous(array19)
       || !require_native(array19)) SWIG_fail;
     arg19 = 1;
     for (i19=0; i19 < array_numdims(array19); ++i19) arg19 *= array_size(array19,i19);
-    arg20 = (float*) array_data(array19);
+    arg20 = (double*) array_data(array19);
   }
   compute_diffs_avx2(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20);
   resultobj = SWIG_Py_Void();
@@ -3899,7 +3899,7 @@ SWIGINTERN PyObject *_wrap_compute_diffs_avx512(PyObject *self, PyObject *args) 
   int *arg17 = (int *) 0 ;
   int arg18 ;
   int arg19 ;
-  float *arg20 = (float *) 0 ;
+  double *arg20 = (double *) 0 ;
   PyArrayObject *array1 = NULL ;
   PyArrayObject *array5 = NULL ;
   PyArrayObject *array9 = NULL ;
@@ -3962,12 +3962,12 @@ SWIGINTERN PyObject *_wrap_compute_diffs_avx512(PyObject *self, PyObject *args) 
   } 
   arg18 = (int)(val18);
   {
-    array19 = obj_to_array_no_conversion(swig_obj[6], NPY_FLOAT);
+    array19 = obj_to_array_no_conversion(swig_obj[6], NPY_DOUBLE);
     if (!array19 || !require_dimensions(array19,1) || !require_contiguous(array19)
       || !require_native(array19)) SWIG_fail;
     arg19 = 1;
     for (i19=0; i19 < array_numdims(array19); ++i19) arg19 *= array_size(array19,i19);
-    arg20 = (float*) array_data(array19);
+    arg20 = (double*) array_data(array19);
   }
   compute_diffs_avx512(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20);
   resultobj = SWIG_Py_Void();

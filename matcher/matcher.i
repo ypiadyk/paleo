@@ -19,7 +19,7 @@
 %apply (int DIM1, int DIM2, float * INPLACE_ARRAY2) {(int wh, int ww, float * w)};
 %apply (int DIM1, int * INPLACE_ARRAY1) {(int ph, int * ps)};
 %apply (int DIM1, int DIM2, int * INPLACE_ARRAY2) {(int mh, int mw, int * ms)};
-%apply (int DIM1, float * INPLACE_ARRAY1) {(int dh, float * diffs)};
+%apply (int DIM1, double * INPLACE_ARRAY1) {(int dh, double * diffs)};
 
 %inline %{
     void compute_diffs(int rh, int rw, int rd, unsigned char * r,
@@ -28,7 +28,7 @@
                        int ih, int iw, int id, unsigned char * img,
                        int mh, int mw, int * ms,
                        int pad,
-                       int dh, float* diffs)
+                       int dh, double* diffs)
     {
         compute_diffs_scalar(r, ps, w, pad, img, iw, ms, mh, diffs);
     }
@@ -41,7 +41,7 @@
                             int ih, int iw, int id, unsigned char * img,
                             int mh, int mw, int * ms,
                             int pad,
-                            int dh, float* diffs)
+                            int dh, double* diffs)
     {
         compute_diffs_simd_avx2(r, ps, w, ww, pad, img, iw, ms, mh, diffs);
     }
@@ -54,7 +54,7 @@
                               int ih, int iw, int id, unsigned char * img,
                               int mh, int mw, int * ms,
                               int pad,
-                              int dh, float* diffs)
+                              int dh, double* diffs)
     {
         compute_diffs_simd_avx512(r, ps, w, ww, pad, img, iw, ms, mh, diffs);
     }

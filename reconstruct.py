@@ -102,7 +102,7 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
         # r = ref[ps[pi, 1] - pad:ps[pi, 1] + pad + 1, ps[pi, 0] - pad:ps[pi, 0] + pad + 1, :].astype(np.float32)
         # diffs = compute_diffs(r, w, img, ms, pad)  # Slow Python/numpy speed
 
-        diffs = np.zeros(ms.shape[0], dtype=np.float32)
+        diffs = np.zeros(ms.shape[0], dtype=np.float64)
         # mm.compute_diffs(ref, w, ps[pi, :], img, ms, pad, diffs)  # 10x speedup (C)
         mm.compute_diffs_avx2(ref, w_f16, ps[pi, :], img, ms, pad, diffs)  # 25x speedup (C + AVX2 SIMD)
         # mm.compute_diffs_avx512(ref, w_f16, ps[pi, :], img, ms, pad, diffs)  # 30x speedup (C + AVX512 SIMD)

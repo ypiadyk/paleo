@@ -3,7 +3,7 @@
 
 
 void compute_diffs_scalar(unsigned char* r, int* ps, float* w, int pad,
-                          unsigned char* img, int iw, int* ms, int n, float* diffs)
+                          unsigned char* img, int iw, int* ms, int n, double* diffs)
 {
     const int sz = 2 * pad + 1;
 
@@ -38,34 +38,33 @@ void compute_diffs_scalar(unsigned char* r, int* ps, float* w, int pad,
             main_loss += loss;
         }
 
-        diffs[k] = (float)( main_loss / (3 * sz * sz) );
+        diffs[k] = (double)( main_loss / (3 * sz * sz) );
     }
 }
 
 
 void compute_diffs_simd_avx2(unsigned char* r, int* ps, unsigned short* w, int ww, int pad,
-                             unsigned char* img, int iw, int* ms, int n, float* diffs)
+                             unsigned char* img, int iw, int* ms, int n, double* diffs)
 {
     const int sz = 2 * pad + 1;
 
-    for (int k = 0; k < n; k++)
+    for (int i = 0; i < sz; i++)
     {
-        const int oi = ms[k * 2 + 1] - pad;
-        const int oj = ms[k * 2] - pad;
+        unsigned short* w_o_0 = w + 3 * i * ww;
+        unsigned char*  r_o_0 = r + 3 * ( (ps[1] - pad + i) * iw + ps[0] - pad);
+        const unsigned char*  end = r_o_0 + 3 * sz;
 
-        __m256 main_acc1 = _mm256_setzero_ps();
-        __m256 main_acc2 = _mm256_setzero_ps();
-
-        for (int i = 0; i < sz; i++)
+        for (int k = 0; k < n; k++)
         {
-            unsigned short* w_o = w + 3 * i * ww;
-            unsigned char*  r_o = r + 3 * ( (ps[1] - pad + i) * iw + ps[0] - pad);
+            const int oi = ms[k * 2 + 1] - pad;
+            const int oj = ms[k * 2] - pad;
+
             unsigned char* img_o = img + 3 * ( (oi + i) * iw + oj);
+            unsigned short* w_o = w_o_0;
+            unsigned char*  r_o = r_o_0;
 
             __m256 acc1 = _mm256_setzero_ps();
             __m256 acc2 = _mm256_setzero_ps();
-
-            const unsigned char* const end = r_o + 3 * sz;
 
             while(r_o < end)
             {
@@ -87,41 +86,39 @@ void compute_diffs_simd_avx2(unsigned char* r, int* ps, unsigned short* w, int w
                 w_o += 16; r_o += 16; img_o += 16;
             }
 
-            main_acc1 = _mm256_add_ps(main_acc1, acc1);
-            main_acc2 = _mm256_add_ps(main_acc2, acc2);
+            const __m256 r8 = _mm256_add_ps(acc1, acc2);
+            const __m128 r4 = _mm_add_ps( _mm256_castps256_ps128(r8), _mm256_extractf128_ps(r8, 1) );
+            const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps(r4, r4) );
+            const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
+
+            diffs[k] += (double)_mm_cvtss_f32(r1);
         }
-
-        const __m256 r8 = _mm256_add_ps(main_acc1, main_acc2);
-        const __m128 r4 = _mm_add_ps( _mm256_castps256_ps128(r8), _mm256_extractf128_ps(r8, 1) );
-        const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps(r4, r4) );
-        const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
-
-        diffs[k] = _mm_cvtss_f32(r1) / (3 * sz * sz);
     }
+    for (int k = 0; k < n; k++) diffs[k] /= 3 * sz * sz;
 }
 
 
 void compute_diffs_simd_avx512(unsigned char* r, int* ps, unsigned short* w, int ww, int pad,
-                               unsigned char* img, int iw, int* ms, int n, float* diffs)
+                               unsigned char* img, int iw, int* ms, int n, double* diffs)
 {
     const int sz = 2 * pad + 1;
 
-    for (int k = 0; k < n; k++)
+    for (int i = 0; i < sz; i++)
     {
-        const int oi = ms[k * 2 + 1] - pad;
-        const int oj = ms[k * 2] - pad;
+        unsigned short* w_o_0 = w + 3 * i * ww;
+        unsigned char*  r_o_0 = r + 3 * ( (ps[1] - pad + i) * iw + ps[0] - pad);
+        const unsigned char*  end = r_o_0 + 3 * sz;
 
-        __m512 main_acc = _mm512_setzero_ps();
-
-        for (int i = 0; i < sz; i++)
+        for (int k = 0; k < n; k++)
         {
-            unsigned short* w_o = w + 3 * i * ww;
-            unsigned char*  r_o = r + 3 * ((ps[1] - pad + i) * iw + ps[0] - pad);
-            unsigned char* img_o = img + 3 * ((oi + i) * iw + oj);
+            const int oi = ms[k * 2 + 1] - pad;
+            const int oj = ms[k * 2] - pad;
+
+            unsigned char* img_o = img + 3 * ( (oi + i) * iw + oj);
+            unsigned short* w_o = w_o_0;
+            unsigned char*  r_o = r_o_0;
 
             __m512 acc = _mm512_setzero_ps();
-
-            const unsigned char* const end = r_o + 3 * sz;
 
             while(r_o < end)
             {
@@ -142,15 +139,14 @@ void compute_diffs_simd_avx512(unsigned char* r, int* ps, unsigned short* w, int
                 w_o += 16; r_o += 16; img_o += 16;
             }
 
-            main_acc = _mm512_add_ps(main_acc, acc);
+            const __m256 r8 = _mm256_add_ps(_mm512_castps512_ps256(acc), _mm512_extractf32x8_ps(acc, 1) );
+            const __m128 r4 = _mm_add_ps( _mm256_castps256_ps128(r8), _mm256_extractf128_ps(r8, 1) );
+            const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps(r4, r4) );
+            const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
+
+//            diffs[k] += (double)_mm_cvtss_f32(r1);
+            diffs[k] += (double)k;  // Segfault bug on Aero 15
         }
-
-        const __m256 r8 = _mm256_add_ps(_mm512_castps512_ps256(main_acc), _mm512_extractf32x8_ps(main_acc, 1) );
-        const __m128 r4 = _mm_add_ps( _mm256_castps256_ps128(r8), _mm256_extractf128_ps(r8, 1) );
-        const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps(r4, r4) );
-        const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
-
-//        diffs[k] = _mm_cvtss_f32(r1) / (3 * sz * sz); // Segfault bug on Aero 15
-        diffs[k] = (float)k;
     }
+    for (int k = 0; k < n; k++) diffs[k] /= 3 * sz * sz;
 }
