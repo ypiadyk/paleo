@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from utils import *
 from calibrate import *
 from scipy.ndimage.filters import uniform_filter
@@ -24,13 +26,13 @@ def trace_ray_v(p, d, off):
     return p + d * s[:, None]
 
 
-def map_to(p, off, ref_O, ref_B, O, B, mtx):
+def map_to(p, off_0, off_1, ref_O, ref_B, O, B, mtx):
     p_u = cv2.undistortPoints(p.astype(np.float32).reshape((-1, 1, 2)), mtx, None).reshape((-1, 2))
     p_ray = np.concatenate([p_u, np.ones((p_u.shape[0], 1))], axis=1)
     w_ray = np.matmul(ref_B, p_ray.T).T
 
-    w0 = trace_ray_v(ref_O, w_ray, 0)
-    w1 = trace_ray_v(ref_O, w_ray, off)
+    w0 = trace_ray_v(ref_O, w_ray, off_0)
+    w1 = trace_ray_v(ref_O, w_ray, off_1)
 
     m0_ray = np.matmul(B.T, (w0 - O).T).T
     m1_ray = np.matmul(B.T, (w1 - O).T).T
@@ -56,11 +58,13 @@ def gaus2d(x, y, mx=0, my=0, sx=1, sy=1):
            np.exp(-((x - mx) ** 2. / (2. * sx ** 2.) + (y - my) ** 2. / (2. * sy ** 2.)))
 
 
-def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
-    cache_filenane = filename[:-4] + ".npy"
-    # if os.path.exists(cache_filenane):
-    #     print("Already exists:", cache_filenane)
-    #     return np.load(cache_filenane)
+def process_pair(ref, ps, filename, s0, s1, pad, min_h, max_h, step, plot=False):
+    prefix = "/%d_%d_%d/" % (min_h, max_h, step)
+    ensure_exists(os.path.dirname(filename) + prefix)
+    cache_filenane = os.path.dirname(filename) + prefix + os.path.basename(filename)[:-4] + ".npy"
+    if os.path.exists(cache_filenane):
+        print("Already exists:", cache_filenane)
+        return np.load(cache_filenane)
 
     if ps.shape[0] == 0:
         return None
@@ -91,6 +95,7 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
             print(pi, "/", ps.shape[0], "-", filename)
 
         n = np.max(np.abs(s0[pi, :] - s1[pi, :]))
+        n = min(n, step * (max_h - min_h))
 
         if n == 0:
             print("n == 0 in", filename)
@@ -108,13 +113,13 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
         # mm.compute_diffs_avx512(ref, w_f16, ps[pi, :], img, ms, pad, diffs)  # 30x speedup (C + AVX512 SIMD)
 
         mean, std = np.mean(diffs), np.std(diffs)
-        x = np.linspace(0, max_h, diffs.shape[0], dtype=np.float32)
+        x = np.linspace(min_h, max_h, diffs.shape[0], dtype=np.float32)
 
         if plot:
             plt.plot(x, diffs)
 
         span, am = np.max(diffs) - np.min(diffs), np.argmin(diffs)
-        contrast = span / (diffs[am] + 0.1)
+        contrast = (span + 0.1) / (diffs[am] + 0.1)
         priority = 1 / (diffs[am] + 0.1)
         resolution = float(n)
 
@@ -129,10 +134,11 @@ def process_pair(ref, ps, filename, s0, s1, pad, max_h, plot=False):
     return res
 
 
-def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_thr=0.1,
+def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=None, pad=15, score_thr=0.1,
                     save=None, plot=False, save_figures=None, **kw):
     corners = load_corners(data_path + "/undistorted/detected/corners.json")
     names = [name[:-4] + ".bmp" for name in sorted(corners.keys())]
+    ref_id = ref_id or (len(names) // 2 - 1)
 
     extrinsics = load_calibration(data_path + "/reconstructed/extrinsic.json")
     O, B = extrinsics["O"], extrinsics["B"]
@@ -152,11 +158,25 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
     print(px.shape, all_ps.shape)
 
     scores = patch_scores_fast(ref, roi, pad)
+    # c, r = np.meshgrid(np.arange(roi[0], roi[2]+1), np.arange(roi[1], roi[3]+1))
+    # all_coords = np.stack([r, c], axis=2).reshape((-1, 2))
+    # print(all_ps - all_coords)
 
     good_idx = np.nonzero(scores > score_thr)[0]
     good_ps = all_ps[good_idx, :]
 
+    good_rays = np.matmul(B[ref_id], img_to_ray(good_ps, cam_calib["new_mtx"]).T).T
+    good_0s = trace_ray_v(O[ref_id], good_rays, 0)
+    good_dirs = O[ref_id] - good_0s
+    good_dirs /= good_dirs[:, 2][:, None]
+    # good_coords = all_coords[good_idx, :]
+
     if plot:
+        plt.figure("Scores", (16, 11))
+        plt.imshow(scores.reshape((-1, roi[2]-roi[0]+1)))
+        plt.colorbar()
+        plt.tight_layout()
+
         plt.figure("Mask", (16, 11))
         bad_ps = all_ps[np.nonzero(scores <= score_thr)[0], :]
         masked_ref = ref.copy()
@@ -172,9 +192,11 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
         plt.tight_layout()
 
         if save_figures:
-            plt.savefig("mask.png", dpi=400)
+            plt.savefig("mask.jpg", dpi=300)
 
-    map_jobs = [joblib.delayed(map_to)(good_ps, max_h, O[ref_id], B[ref_id], O[i], B[i], cam_calib["new_mtx"])
+    # return
+
+    map_jobs = [joblib.delayed(map_to)(good_ps, min_h, max_h, O[ref_id], B[ref_id], O[i], B[i], cam_calib["new_mtx"])
                 for i in range(len(names)) if i != ref_id]
 
     ss = joblib.Parallel(verbose=15, n_jobs=-1)(map_jobs)
@@ -197,7 +219,7 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
 
         ps, s0, s1 = good_ps[idx, :], np.round(s0[idx, :]).astype(np.int32), np.round(s1[idx, :]).astype(np.int32)
 
-        jobs.append(joblib.delayed(process_pair)(ref, ps, data_path + "/undistorted/" + name, s0, s1, pad, max_h))
+        jobs.append(joblib.delayed(process_pair)(ref, ps, data_path + "/undistorted/" + name, s0, s1, pad, min_h, max_h, step))
         lengths.append(idx.shape[0])
 
     order = np.argsort(np.array(lengths)).tolist()
@@ -208,7 +230,7 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
 
     print("Computed stats")
 
-    all_stats = np.zeros((good_ps.shape[0], len(names)-1, 1+5), dtype=np.float16)
+    all_stats = np.zeros((good_ps.shape[0], len(names)-1, 1+5), dtype=np.float32)
     for i, stat in enumerate(stats):
         idx = all_idx[i]
         all_stats[:, i, 0] = -1
@@ -220,35 +242,50 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
     print("Merged stats")
 
     height = np.zeros(good_ps.shape[0], dtype=np.float32)
+    p3d = np.zeros((good_ps.shape[0], 3), dtype=np.float32)
+    colors = np.zeros((good_ps.shape[0], 3), dtype=np.float32)
+    counts = np.zeros_like(height, dtype=np.int32)
 
     for i in range(good_ps.shape[0]):
         stats = all_stats[i, :, :]
         valid_stats = stats[stats[:, 0] > 0]
-        good_stats = valid_stats[valid_stats[:, 2] > 0.1 * valid_stats[:, 1]]
+        good_stats = valid_stats[valid_stats[:, 2] > 0.2 * valid_stats[:, 1]]
 
         if good_stats.shape[0] > 0:
             xs, ms, ws = good_stats[:, 3], good_stats[:, 4], good_stats[:, 5]
-            idx = ms < 2 * np.min(ms)
+            idx = ms < 4 * np.min(ms)
             xs, ws = xs[idx], ws[idx]
 
             if xs.shape[0] > 0:
                 true_x = np.sum(xs * ws) / np.sum(ws)
+                c, r = good_ps[i, :]
                 height[i] = true_x
+                counts[i] = xs.shape[0]
+                p3d[i, :] = good_0s[i, :] + good_dirs[i, :] * true_x
+                colors[i, :] = ref[r, c, :] / 255.0
 
     rw, rh = roi[2] - roi[0] + 1, roi[3] - roi[1] + 1
 
     all_height = np.zeros((rw * rh), dtype=np.float32)
+    all_counts = np.zeros((rw * rh), dtype=np.float32)
     all_height[...] = None
+    all_counts[...] = None
 
     all_height[good_idx] = height
+    all_counts[good_idx] = counts
     all_height = all_height.reshape((rh, rw))
+    all_counts = all_counts.reshape((rh, rw))
 
     print("Computed heights")
 
     if save:
+        save_ply("points.ply", p3d, colors=colors)
+
         np.save("height.npy", all_height)
         all_height = np.load("height.npy")
         print(all_height)
+
+    # all_height = np.load("height.npy")
 
     if plot:
         plt.figure("Height", (16, 8))
@@ -260,7 +297,17 @@ def roi_reconstruct(data_path, cam_calib, roi, max_h, ref_id=14, pad=25, score_t
         if save_figures:
             plt.savefig("height_map.png", dpi=240)
 
+        plt.figure("Counts", (16, 8))
+        plt.imshow(all_counts)
+        plt.title("Image counts")
+        plt.colorbar()
+        plt.tight_layout()
+
+        if save_figures:
+            plt.savefig("height_counts.png", dpi=240)
+
         h = all_height[~np.isnan(all_height)].ravel()
+        h = np.minimum(h, 30)
         plt.figure("Hist", (16, 9))
         plt.hist(h, bins=500)
         plt.title("Mean = %.2f (std = %.3f)" % (float(np.mean(h)), float(np.std(h))))
@@ -280,20 +327,38 @@ if __name__ == "__main__":
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 3e4/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 5/"
     # calib_data = "D:/paleo-data/test-calib/"
+    # calib_data = "D:/paleo_scans/calib/"
+    calib_data = "D:/paleo_scans/calib_17/"
 
     cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
     # data_path = "D:/paleo-data/1 - FLAT OBJECT 1/"
-    data_path = "D:/paleo-data/2 - FLAT OBJECT 2/"
+    # data_path = "D:/paleo-data/2 - FLAT OBJECT 2/"
     # data_path = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
     # data_path = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
     # data_path = "D:/paleo-data/5 - BOX/"
     # data_path = "D:/paleo-data/test-scan-1/"
     # data_path = "D:/paleo-data/test-scan-2/"
+    # data_path = "D:/paleo_scans/scan_0/"
+    # data_path = "D:/paleo_scans/scan_1/"
+    # data_path = "D:/paleo_scans/scan_2/"
+    data_path = "D:/paleo_scans/scan_17/"
 
     # roi_reconstruct(data_path, cam_calib, (1550, 1450, 3550, 2450), 6, save=True, plot=True, save_figures=False)
     # roi_reconstruct(data_path, cam_calib, (1700, 1700, 1750, 1750), 6, save=False, plot=True, save_figures=False)
-    roi_reconstruct(data_path, cam_calib, (3000, 2000, 3050, 2050), 21, save=False, plot=True, save_figures=False)
+    # roi_reconstruct(data_path, cam_calib, (3000, 2000, 3050, 2050), 21, save=False, plot=True, save_figures=False)
     # roi_reconstruct(data_path, cam_calib, (2990, 1990, 2996, 1994), 21, save=True, plot=True, save_figures=True)
+
+    # roi_reconstruct(data_path, cam_calib, (2900, 1600, 3700, 1900), 10, 21, save=True, plot=True, save_figures=False)
+    # roi_reconstruct(data_path, cam_calib, (3200, 1700, 3250, 1750), 0, 21, save=False, plot=True, save_figures=False)
+
+    roi_reconstruct(data_path, cam_calib, (2200, 1600, 3900, 2300), 19, 24, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (4350, 2970, 5600, 3380), 12, 16, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (2420, 3200, 3550, 3800), 8, 12, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (650, 3550, 1950, 3900), 19, 25, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (500, 650, 1500, 1130), 7, 13, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (2600, 350, 3750, 850), 11, 15, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (4650, 650, 5270, 1020), 11, 16, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (4800, 1700, 5200, 1970), 9, 12, step=20, ref_id=52, save=True, plot=True, save_figures=True)
 
     plt.show()

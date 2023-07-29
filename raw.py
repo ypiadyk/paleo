@@ -167,7 +167,9 @@ if __name__ == "__main__":
     # exit(0)
 
     # data_path = '/home/yurii/data/simple/white_balance/'
-    data_path = "D:/paleo-data/2 - FLAT OBJECT 2/white_balance/"
+    # data_path = "D:/paleo-data/2 - FLAT OBJECT 2/white_balance/"
+    # data_path = "D:/paleo_scans/scan_0/white_balance/"
+    data_path = "D:/paleo_scans/scan_17/white_balance/"
     target = data_path + 'target.arw'
     mask = data_path + 'mask.png'
 

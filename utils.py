@@ -70,6 +70,11 @@ def img_stats(img, low=16, high=250):
     return vmin, vmax
 
 
+def img_to_ray(ps, K):
+    xy = cv2.undistortPoints(ps.astype(np.float32).reshape((-1, 1, 2)), K, None).reshape((-1, 2))
+    return np.concatenate([xy, np.ones((xy.shape[0], 1))], axis=1)
+
+
 def plot_image(img, figure_name, title=None, size=(16, 9), save_as=None, **kw):
     plt.figure(figure_name, size)
     plt.clf()

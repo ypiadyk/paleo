@@ -31,16 +31,23 @@ def projection_errors(obj_points, img_points, calibration):
     return np.array(avg_errors), all_errors
 
 
-def calibrate(obj_points, img_points, dim, error_thr=1.0, mtx_guess=None, no_tangent=True,
+def calibrate(obj_points, img_points, dim, error_thr=1.0, mtx_guess=None, no_tangent=False, less_K=False,
                                 centerPrincipalPoint=None, out_dir="", plot=False, save_figures=True, **kw):
     h, w, n = dim[0], dim[1], len(img_points)
     print("Initial:", n)
 
-    flags = cv2.CALIB_FIX_TANGENT_DIST if no_tangent else 0
+    flags = cv2.CALIB_FIX_TANGENT_DIST | cv2.CALIB_FIX_K3
     if mtx_guess is not None:
         flags |= cv2.CALIB_USE_INTRINSIC_GUESS
 
     initial_calibration = cv2.calibrateCamera(obj_points, img_points, (w, h), mtx_guess, None, flags=flags)
+    mtx_guess = initial_calibration[1]
+
+    flags = cv2.CALIB_FIX_TANGENT_DIST if no_tangent else 0
+    if less_K:
+        flags |= cv2.CALIB_FIX_K3
+    if mtx_guess is not None:
+        flags |= cv2.CALIB_USE_INTRINSIC_GUESS
 
     initial_errors = projection_errors(obj_points, img_points, initial_calibration)
     print("Mean initial error:", np.mean(initial_errors[0]))
@@ -58,7 +65,7 @@ def calibrate(obj_points, img_points, dim, error_thr=1.0, mtx_guess=None, no_tan
     print("\nmtx:\n", mtx)
     print("\ndist:", dist)
 
-    new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h), centerPrincipalPoint=centerPrincipalPoint)
+    new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.33, (w, h), centerPrincipalPoint=centerPrincipalPoint)
     print("\nnew_mtx:\n", new_mtx)
     print("\nroi:", roi)
 

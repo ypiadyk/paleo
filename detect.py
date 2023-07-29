@@ -55,7 +55,10 @@ def detect_checker(gray, n=11, m=8, size=20, pre_scale=1, draw_on=None, draw_sca
 # Detect charuco board on a gray scale image. Use pre_scale to do the initial pass on a lower resolution image.
 # Use draw_scale to do reduce the resolution of an overlay image.
 # Board origin: bottom-left. First axis: X to the right. Second axis: Y up
-def detect_charuco(gray, n=29, m=18, size=20, pre_scale=1, draw_on=None, draw_scale=1):
+# def detect_charuco(gray, n=29, m=18, size=20, pre_scale=1, draw_on=None, draw_scale=1):
+# def detect_charuco(gray, n=28, m=17, size=20, pre_scale=1, draw_on=None, draw_scale=1):
+def detect_charuco(gray, n=25, m=18, size=30, pre_scale=1, draw_on=None, draw_scale=1):
+# def detect_charuco(gray, n=12, m=9, size=60, pre_scale=1, draw_on=None, draw_scale=1):
     aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
     board = aruco.CharucoBoard_create(n, m, size, size * 12 / 15, aruco_dict)
 
@@ -78,6 +81,7 @@ def detect_charuco(gray, n=29, m=18, size=20, pre_scale=1, draw_on=None, draw_sc
         img_points, obj_points, ids = None, None, None
 
     if draw_on is not None:
+        img = draw_on.copy()
         if draw_scale > 1.5:
             draw_on = cv2.resize(draw_on, (draw_on.shape[1] // draw_scale, draw_on.shape[0] // draw_scale))
         if len(draw_on.shape) == 2:
@@ -236,12 +240,30 @@ if __name__ == "__main__":
                     "D:/paleo-data/test-scan-2/undistorted/",
                     ]
 
+    data_paths = [
+                    "D:/Dropbox/work/cvpr/1_calib_frames/",
+                    "D:/Dropbox/work/cvpr/2_calib_frames/",
+                    "D:/Dropbox/work/cvpr/3_calib_frames/",
+                    ]
+
+    data_paths = [
+                    # "D:/paleo_scans/calib/",
+                    # "D:/paleo_scans/calib_11/",
+                    # "D:/paleo_scans/calib_11_bad/",
+                    # "D:/paleo_scans/calib_17/",
+                    "D:/paleo_scans/scan_17/undistorted/"
+                    # "D:/paleo_scans/scan_0/undistorted/",
+                    # "D:/paleo_scans/scan_1/undistorted/",
+                    # "D:/paleo_scans/scan_2/undistorted/"
+                    ]
+
     # filename = "D:/paleo-data/CALIBRATION BOARD 1e2/DSC00050.JPG"
     # detect_single(filename, detect_charuco, draw=True, save=False, plot=True, pre_scale=4, draw_scale=3)
 
-    # for i in range(3):
+    for i in range(len(data_paths)):
     # for i in range(3, 8):
     # for i in [8]:
-    for i in range(9, 11):
-        detect_all(data_paths[i] + "*.JPG", detect_charuco, draw=True, save=True, pre_scale=4, draw_scale=2)
+    # for i in range(9, 11):
+    #     detect_all(data_paths[i] + "*.jpg", detect_charuco, draw=True, save=True, pre_scale=4, draw_scale=2)
+        detect_all(data_paths[i] + "*.bmp", detect_charuco, draw=True, save=True, pre_scale=2, draw_scale=1)
 

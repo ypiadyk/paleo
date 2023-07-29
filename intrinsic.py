@@ -41,10 +41,10 @@ def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipal
 
         plt.figure("All errors", (12, 8))
         plt.clf()
-        plt.hist(all_errors, bins=50, range=[0, 2])
+        plt.hist(all_errors, bins=50, range=[0, 5])
         plt.xlabel("Error, pixels")
         plt.ylabel("Counts")
-        plt.xlim([0, 2])
+        plt.xlim([0, 5])
         plt.tight_layout()
 
         if save:
@@ -108,7 +108,7 @@ def save_camera_calibration(calibration, filename, mean_error=None):
 
 
 def undistort_images(images_path, cam_calib):
-    images = glob.glob(images_path + "*.JPG")
+    images = glob.glob(images_path + "*.jpg")
     ensure_exists(images_path + "undistorted/")
     print("Found %d images:" % len(images), images)
 
@@ -116,36 +116,50 @@ def undistort_images(images_path, cam_calib):
         original = cv2.imread(image)
         undistorted = cv2.undistort(original, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
         new_filename = images_path + "undistorted/" + os.path.basename(image)
-        cv2.imwrite(new_filename, undistorted)
+        # cv2.imwrite(new_filename, undistorted)
 
         wb = load_wb(images_path + "white_balance/white_balance.json")
         arw = read_raw(image[:-4] + ".ARW", white_balance=wb)[10:4010, 10:6010]
         arw = (255*arw).astype(np.uint8)
         u_arw = cv2.undistort(arw, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
         cv2.imwrite(new_filename[:-4] + ".bmp", u_arw[:, :, ::-1])
-        print(new_filename)
+        # print(new_filename)
 
     jobs = [joblib.delayed(undistort_single)(image) for image in images]
     joblib.Parallel(verbose=15, n_jobs=-1, batch_size=1, pre_dispatch="all")(jobs)
 
 
 if __name__ == "__main__":
-    calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
+    # calib_data = "D:/Dropbox/work/cvpr/1_calib_frames/"
+    # calib_data = "D:/Dropbox/work/cvpr/2_calib_frames/"
+    # calib_data = "D:/Dropbox/work/cvpr/3_calib_frames/"
+    # calib_data = "D:/paleo-data/CALIBRATION BOARD 1e2/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 3e4/"
     # calib_data = "D:/paleo-data/CALIBRATION BOARD 5/"
     # calib_data = "D:/paleo-data/test-calib/"
+    # calib_data = "D:/paleo_scans/calib/"
+    # calib_data = "D:/paleo_scans/calib_11/"
+    calib_data = "D:/paleo_scans/calib_17/"
 
-    # calibration, errors = calibrate_intrinsic(calib_data, error_thr=3.1, save=True, plot=True)
-    cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
+    calibration, errors = calibrate_intrinsic(calib_data, error_thr=18.1, min_points=20, save=True, plot=True)
+    # cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
+    # image_data = "D:/Dropbox/work/cvpr/1_fscam_frames/"
+    # image_data = "D:/Dropbox/work/cvpr/2_fscam_frames/"
+    # image_data = "D:/Dropbox/work/cvpr/3_fscam_frames/"
     # image_data = "D:/paleo-data/1 - FLAT OBJECT 1/"
-    image_data = "D:/paleo-data/2 - FLAT OBJECT 2/"
+    # image_data = "D:/paleo-data/2 - FLAT OBJECT 2/"
     # image_data = "D:/paleo-data/3 - IRREGULAR OBJECT 1/"
     # image_data = "D:/paleo-data/4 - IRREGULAR OBJECT 2/"
     # image_data = "D:/paleo-data/5 - BOX/"
     # image_data = "D:/paleo-data/test-scan-1/"
     # image_data = "D:/paleo-data/test-scan-2/"
 
-    undistort_images(image_data, cam_calib)
+    # image_data = "D:/paleo_scans/scan_0/"
+    # image_data = "D:/paleo_scans/scan_1/"
+    # image_data = "D:/paleo_scans/scan_2/"
+    image_data = "D:/paleo_scans/scan_17/"
+
+    # undistort_images(image_data, cam_calib)
 
     plt.show()
