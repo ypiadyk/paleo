@@ -66,7 +66,7 @@ def find_balance(target, mask_filename, plot=True, save=True):
     if mask_filename is None:
         mask = (0.01 < np.min(img, axis=2)) & (np.max(img, axis=2) < 0.9)
     else:
-        mask_img = imageio.imread(mask_filename)
+        mask_img = cv2.imread(mask_filename)[:, :, ::-1]
         mask = (mask_img[:,:,0] == 255) & (mask_img[:,:,1] == 0) & (mask_img[:,:,2] == 0)
 
     i, j = np.nonzero(mask)
@@ -103,6 +103,13 @@ def find_balance(target, mask_filename, plot=True, save=True):
 
         if save:
             plt.savefig(target[:target.rfind("/")] + "/white_balance.png", dpi=120)
+
+        img = read_raw(target, white_balance=bal)
+        cv2.imwrite(os.path.dirname(target) + "/balanced.png", (255 * img[10:4010, 10:6010, ::-1]).astype(np.uint8))
+
+        plt.figure('Balanced', (12, 9))
+        plt.imshow(img)
+        plt.tight_layout()
 
     if save:
         with open(target[:target.rfind("/")] + "/white_balance.json", "w") as f:
@@ -175,10 +182,4 @@ if __name__ == "__main__":
 
     wb = find_balance(target, mask, plot=True, save=True)
 
-    img = read_raw(target, white_balance=wb)
-    cv2.imwrite(data_path + "balanced.png", (255 * img[10:4010, 10:6010, ::-1]).astype(np.uint8))
-
-    plt.figure('Balanced', (12, 9))
-    plt.imshow(img)
-    plt.tight_layout()
     plt.show()

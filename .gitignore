@@ -5,3 +5,4 @@ __pycache__
 flat_fish
 matcher/build
 mask.png
+0_*/*

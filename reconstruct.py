@@ -58,8 +58,8 @@ def gaus2d(x, y, mx=0, my=0, sx=1, sy=1):
            np.exp(-((x - mx) ** 2. / (2. * sx ** 2.) + (y - my) ** 2. / (2. * sy ** 2.)))
 
 
-def process_pair(ref, ps, filename, s0, s1, pad, min_h, max_h, step, plot=False):
-    prefix = "/%d_%d_%d/" % (min_h, max_h, step)
+def process_pair(ref, ps, filename, s0, s1, pad, min_h, max_h, steps, plot=False):
+    prefix = "/%d_%d_%d/" % (min_h, max_h, steps)
     ensure_exists(os.path.dirname(filename) + prefix)
     cache_filenane = os.path.dirname(filename) + prefix + os.path.basename(filename)[:-4] + ".npy"
     if os.path.exists(cache_filenane):
@@ -95,7 +95,7 @@ def process_pair(ref, ps, filename, s0, s1, pad, min_h, max_h, step, plot=False)
             print(pi, "/", ps.shape[0], "-", filename)
 
         n = np.max(np.abs(s0[pi, :] - s1[pi, :]))
-        n = min(n, step * (max_h - min_h))
+        n = min(n, steps * (max_h - min_h))
 
         if n == 0:
             print("n == 0 in", filename)
@@ -134,7 +134,7 @@ def process_pair(ref, ps, filename, s0, s1, pad, min_h, max_h, step, plot=False)
     return res
 
 
-def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=None, pad=15, score_thr=0.1,
+def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, steps=15, ref_id=None, pad=10, score_thr=0.1,
                     save=None, plot=False, save_figures=None, **kw):
     corners = load_corners(data_path + "/undistorted/detected/corners.json")
     names = [name[:-4] + ".bmp" for name in sorted(corners.keys())]
@@ -192,7 +192,7 @@ def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=Non
         plt.tight_layout()
 
         if save_figures:
-            plt.savefig("mask.jpg", dpi=300)
+            plt.savefig(data_path + "/reconstructed/mask.jpg", dpi=300)
 
     # return
 
@@ -219,7 +219,7 @@ def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=Non
 
         ps, s0, s1 = good_ps[idx, :], np.round(s0[idx, :]).astype(np.int32), np.round(s1[idx, :]).astype(np.int32)
 
-        jobs.append(joblib.delayed(process_pair)(ref, ps, data_path + "/undistorted/" + name, s0, s1, pad, min_h, max_h, step))
+        jobs.append(joblib.delayed(process_pair)(ref, ps, data_path + "/undistorted/" + name, s0, s1, pad, min_h, max_h, steps))
         lengths.append(idx.shape[0])
 
     order = np.argsort(np.array(lengths)).tolist()
@@ -279,10 +279,10 @@ def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=Non
     print("Computed heights")
 
     if save:
-        save_ply("points.ply", p3d, colors=colors)
+        save_ply(data_path + "/reconstructed/points.ply", p3d, colors=colors)
 
-        np.save("height.npy", all_height)
-        all_height = np.load("height.npy")
+        np.save(data_path + "/reconstructed/height.npy", all_height)
+        all_height = np.load(data_path + "/reconstructed/height.npy")
         print(all_height)
 
     # all_height = np.load("height.npy")
@@ -295,7 +295,7 @@ def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=Non
         plt.tight_layout()
 
         if save_figures:
-            plt.savefig("height_map.png", dpi=240)
+            plt.savefig(data_path + "/reconstructed/height_map.png", dpi=240)
 
         plt.figure("Counts", (16, 8))
         plt.imshow(all_counts)
@@ -304,7 +304,7 @@ def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=Non
         plt.tight_layout()
 
         if save_figures:
-            plt.savefig("height_counts.png", dpi=240)
+            plt.savefig(data_path + "/reconstructed/height_counts.png", dpi=240)
 
         h = all_height[~np.isnan(all_height)].ravel()
         h = np.minimum(h, 30)
@@ -317,7 +317,7 @@ def roi_reconstruct(data_path, cam_calib, roi, min_h, max_h, step=10, ref_id=Non
         plt.tight_layout()
 
         if save_figures:
-            plt.savefig("height_hist.png", dpi=120)
+            plt.savefig(data_path + "/reconstructed/height_hist.png", dpi=120)
 
     print("Done reconstructing")
 
@@ -352,13 +352,12 @@ if __name__ == "__main__":
     # roi_reconstruct(data_path, cam_calib, (2900, 1600, 3700, 1900), 10, 21, save=True, plot=True, save_figures=False)
     # roi_reconstruct(data_path, cam_calib, (3200, 1700, 3250, 1750), 0, 21, save=False, plot=True, save_figures=False)
 
-    roi_reconstruct(data_path, cam_calib, (2200, 1600, 3900, 2300), 19, 24, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (4350, 2970, 5600, 3380), 12, 16, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (2420, 3200, 3550, 3800), 8, 12, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (650, 3550, 1950, 3900), 19, 25, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (500, 650, 1500, 1130), 7, 13, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (2600, 350, 3750, 850), 11, 15, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (4650, 650, 5270, 1020), 11, 16, step=20, ref_id=52, save=True, plot=True, save_figures=True)
-    # roi_reconstruct(data_path, cam_calib, (4800, 1700, 5200, 1970), 9, 12, step=20, ref_id=52, save=True, plot=True, save_figures=True)
+    roi_reconstruct(data_path, cam_calib, (4350, 2970, 5600, 3380), 12, 16, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (2420, 3200, 3550, 3800), 8, 12, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (650, 3550, 1950, 3900), 19, 25, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (500, 650, 1500, 1130), 7, 13, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (2600, 350, 3750, 850), 11, 15, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (4650, 650, 5270, 1020), 11, 16, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
+    # roi_reconstruct(data_path, cam_calib, (4800, 1700, 5200, 1970), 9, 12, steps=20, ref_id=52, save=True, plot=True, save_figures=True)
 
     plt.show()

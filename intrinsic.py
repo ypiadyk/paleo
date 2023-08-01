@@ -41,10 +41,10 @@ def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipal
 
         plt.figure("All errors", (12, 8))
         plt.clf()
-        plt.hist(all_errors, bins=50, range=[0, 5])
+        plt.hist(all_errors, bins=100, range=[0, 3])
         plt.xlabel("Error, pixels")
         plt.ylabel("Counts")
-        plt.xlim([0, 5])
+        plt.xlim([0, 3])
         plt.tight_layout()
 
         if save:
