@@ -35,20 +35,60 @@ def calibrate_intrinsic(data_path, max_images=70, min_points=80, centerPrincipal
         u_points = cv2.undistortPoints(points, mtx, dist, None, new_mtx).reshape(-1, 2)
 
     if plot:
-        all_errors = []
-        for error in errors[1][1]:
+        all_errors, all_projections, all_distances = [], [], []
+        for i in range(len(errors[1][1])):
+            avg, error, proj, dist = (errors[1][j][i] for j in range(4))
             all_errors.extend(error)
+            all_projections.extend(proj)
+            all_distances.extend(dist)
 
-        plt.figure("All errors", (12, 8))
+        print(len(all_errors), "points total")
+        all_errors, all_projections, all_distances = np.array(all_errors), np.array(all_projections), np.array(all_distances)
+
+        plt.figure("All Errors", (12, 8))
         plt.clf()
         plt.hist(all_errors, bins=100, range=[0, 3])
         plt.xlabel("Error, pixels")
         plt.ylabel("Counts")
+        plt.title("All Reprojection Errors")
         plt.xlim([0, 3])
         plt.tight_layout()
 
         if save:
             plt.savefig(data_path + "calibrated/all_camera_reprojection_errors.png", dpi=300)
+
+        plt.figure("Errors vs. Distances", (12, 8))
+        plt.clf()
+        plt.plot(all_distances, all_errors, ".", markersize=1.5)
+        plt.xlabel("Center distance, pixels")
+        plt.ylabel("Reprojection error, pixels")
+        plt.title("Reprojection Errors vs. Center Distances")
+        plt.xlim([0, 3000])
+        plt.ylim([0, 4])
+        plt.tight_layout()
+
+        if save:
+            plt.savefig(data_path + "calibrated/reprojection_errors_vs_distances.png", dpi=300)
+
+        plt.figure("Top Errors Distribution", (12, 8))
+        plt.clf()
+        thr = 1
+        idx = all_errors > thr
+        center = mtx[:2, 2]
+        plt.plot(all_projections[:, 0], all_projections[:, 1], "b.", markersize=1, label="All Errors")
+        plt.plot(all_projections[idx, 0], all_projections[idx, 1], "r.", markersize=3, label="Top Errors")
+        plt.plot(center[0], center[1], "*g", markersize=12, label="Optical Center")
+        plt.xlabel("Column, pixels")
+        plt.ylabel("Row, pixels")
+        plt.title("Top Errors Distribution (> %.1f pixels)" % thr)
+        plt.xlim([0, img.shape[1]])
+        plt.ylim([0, img.shape[0]])
+        plt.gca().invert_yaxis()
+        plt.legend()
+        plt.tight_layout()
+
+        if save:
+            plt.savefig(data_path + "calibrated/top_errors_distribution.png", dpi=300)
 
         def plot_rec(p):
             plt.plot(p[:, 0], p[:, 1], ".g")
@@ -107,23 +147,40 @@ def save_camera_calibration(calibration, filename, mean_error=None):
                    "mean_projection_error, pixels": mean_error}, f, indent=4, cls=NumpyEncoder)
 
 
-def undistort_images(images_path, cam_calib):
+def undistort_images(images_path, cam_calib, brightness_boost=1.0, save_tiffs=True):
     images = glob.glob(images_path + "*.jpg")
     ensure_exists(images_path + "undistorted/")
+    if save_tiffs:
+        ensure_exists(images_path + "mapped/")
     print("Found %d images:" % len(images), images)
 
     def undistort_single(image):
         original = cv2.imread(image)
-        undistorted = cv2.undistort(original, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
-        new_filename = images_path + "undistorted/" + os.path.basename(image)
+        # undistorted = cv2.undistort(original, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
+        # new_filename = images_path + "undistorted/" + os.path.basename(image)
         # cv2.imwrite(new_filename, undistorted)
 
+        # wb_raw = (1, 1, 1)
+        # raw = read_raw(image[:-4] + ".ARW", white_balance=wb_raw, gamma=1.0)[10:4010, 10:6010]
+        # raw = np.minimum(brightness_boost * raw, 1.0)
+        # raw = (255*raw).astype(np.uint8)
+        # cv2.imwrite(new_filename[:-4] + "_RAW.bmp", raw[:, :, ::-1])
+
         wb = load_wb(images_path + "white_balance/white_balance.json")
-        arw = read_raw(image[:-4] + ".ARW", white_balance=wb)[10:4010, 10:6010]
-        arw = (255*arw).astype(np.uint8)
+        arw = read_raw(image[:-4] + ".ARW", white_balance=wb, gamma=1.0)[10:4010, 10:6010]
+
+        arw = np.minimum(brightness_boost * arw, 1.0)
+        arw = np.sqrt(arw)  # inverse gamma=2.0 correction
+
         u_arw = cv2.undistort(arw, cam_calib["mtx"], cam_calib["dist"], newCameraMatrix=cam_calib["new_mtx"])
-        cv2.imwrite(new_filename[:-4] + ".bmp", u_arw[:, :, ::-1])
-        # print(new_filename)
+        new_filename = images_path + "undistorted/" + os.path.basename(image)
+        cv2.imwrite(new_filename[:-4] + ".bmp", (255 * u_arw[:, :, ::-1]).astype(np.uint8))
+
+        if save_tiffs:
+            new_filename = images_path + "mapped/" + os.path.basename(image)
+            cv2.imwrite(new_filename[:-4] + ".tiff", ((2**16-1) * u_arw[:, :, ::-1]).astype(np.uint16), params=(cv2.IMWRITE_TIFF_COMPRESSION, 5))
+
+        print(new_filename, "-", "Done")
 
     jobs = [joblib.delayed(undistort_single)(image) for image in images]
     joblib.Parallel(verbose=15, n_jobs=-1, batch_size=1, pre_dispatch="all")(jobs)
@@ -139,10 +196,10 @@ if __name__ == "__main__":
     # calib_data = "D:/paleo-data/test-calib/"
     # calib_data = "D:/paleo_scans/calib/"
     # calib_data = "D:/paleo_scans/calib_11/"
-    calib_data = "D:/paleo_scans/calib_17/"
+    calib_data = "D:/some_paleo_scans/calib_17/"
 
-    calibration, errors = calibrate_intrinsic(calib_data, error_thr=18.1, min_points=20, save=True, plot=True)
-    # cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
+    # calibration, errors = calibrate_intrinsic(calib_data, error_thr=18.1, min_points=20, save=True, plot=True)
+    cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
     # image_data = "D:/Dropbox/work/cvpr/1_fscam_frames/"
     # image_data = "D:/Dropbox/work/cvpr/2_fscam_frames/"
@@ -158,8 +215,8 @@ if __name__ == "__main__":
     # image_data = "D:/paleo_scans/scan_0/"
     # image_data = "D:/paleo_scans/scan_1/"
     # image_data = "D:/paleo_scans/scan_2/"
-    image_data = "D:/paleo_scans/scan_17/"
+    image_data = "D:/some_paleo_scans/scan_17/"
 
-    # undistort_images(image_data, cam_calib)
+    undistort_images(image_data, cam_calib)
 
     plt.show()

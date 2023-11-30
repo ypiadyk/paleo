@@ -20,15 +20,18 @@ def point_line_dist(p, l0, l1):
 
 def projection_errors(obj_points, img_points, calibration):
     ret, mtx, dist, rvecs, tvecs = calibration
+    center = mtx[:2, 2]
 
-    avg_errors, all_errors = [], []
+    avg_errors, all_errors, projections, distances = [], [], [], []
     for i, (obj_p, img_p) in enumerate(zip(obj_points, img_points)):
         img_points_2, _ = cv2.projectPoints(obj_p, rvecs[i], tvecs[i], mtx, dist)
         img_points_2 = img_points_2.reshape((obj_p.shape[0], 2))
         all_errors.append(np.linalg.norm(img_p - img_points_2, axis=1))
         avg_errors.append(np.average(all_errors[-1]))
+        projections.append(img_points_2)
+        distances.append(np.linalg.norm(center - img_points_2, axis=1))
 
-    return np.array(avg_errors), all_errors
+    return np.array(avg_errors), all_errors, projections, distances
 
 
 def calibrate(obj_points, img_points, dim, error_thr=1.0, mtx_guess=None, no_tangent=False, less_K=False,
@@ -73,17 +76,17 @@ def calibrate(obj_points, img_points, dim, error_thr=1.0, mtx_guess=None, no_tan
         plt.figure("Calibration", (12, 8))
         plt.clf()
         plt.plot(np.arange(n), initial_errors[0], ".r", markersize=3.5, label="Initial Errors")
-        plt.plot(selected, refined_errors[0], ".b", markersize=3.5, label="Selected Stops")
-        plt.plot([-1, n], [error_thr, error_thr], '--k', linewidth=1.25, label="Threshold")
-        # plt.title("Projection Errors")
-        plt.xlabel("Stop #")
+        plt.plot(selected, refined_errors[0], ".b", markersize=3.5, label="Selected Images")
+        plt.plot([-1, n], [error_thr, error_thr], '--k', linewidth=1.25, label="Threshold (%.1f)" % error_thr)
+        plt.title("Images Selection")
+        plt.xlabel("Image, #")
         plt.ylabel("Error, pixels")
         plt.xlim([-2, n+1])
         plt.ylim([0, 1.1 * np.max(initial_errors[0])])
         plt.legend()
         plt.tight_layout()
         if save_figures:
-            plt.savefig(out_dir + "/initial_projection_errors.png", dpi=300)
+            plt.savefig(out_dir + "/images_selection_criteria.png", dpi=300)
 
     calibration = mtx, dist.ravel(), new_mtx, np.array(roi)
     errors = initial_errors, refined_errors, selected

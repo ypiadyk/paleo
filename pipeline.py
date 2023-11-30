@@ -4,9 +4,12 @@ from extrinsic import *
 from reconstruct import *
 
 
+# print(cv2.getBuildInformation())
+
+
 if __name__ == "__main__":
-    calib_data = "D:/paleo_scans/calib_jpg/"
-    scan_data = "D:/paleo_scans/scan_raw/"
+    calib_data = "D:/paleo-data/some_paleo_scans/calib_jpg/"
+    scan_data = "D:/paleo-data/some_paleo_scans/scan_raw/"
     plot = True  # Choose whether to plot intermediate results
 
     # Define calibration board used for actual camera calibration
@@ -20,13 +23,17 @@ if __name__ == "__main__":
     calibration, errors = calibrate_intrinsic(calib_data, error_thr=18.1, min_points=20, save=True, plot=plot)
     cam_calib = load_calibration(calib_data + "/calibrated/geometry.json")
 
+    plt.show()
+    exit(0)
+
     # Define target image and the white square mask for the while balance computation (comment when done)
     target = scan_data + 'white_balance/target.arw'  # Copy a raw image containing the color calibration target
     mask = scan_data + 'white_balance/mask.png'  # Draw red-on-white mask for white square in 2019 Edition corner
     find_balance(target, mask, save=True, plot=plot)
 
     # Undistort and color adjust the raw images in preparation for reconstruction (comment after done)
-    undistort_images(scan_data, cam_calib)
+    undistort_images(scan_data, cam_calib, brightness_boost=2.0, save_tiffs=True)
+    exit(0)
 
     # Define calibration board used during fossil scanning
     scan_n, scan_m, scan_size = 25, 18, 30  # mm

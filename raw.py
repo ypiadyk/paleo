@@ -105,7 +105,8 @@ def find_balance(target, mask_filename, plot=True, save=True):
             plt.savefig(target[:target.rfind("/")] + "/white_balance.png", dpi=120)
 
         img = read_raw(target, white_balance=bal)
-        cv2.imwrite(os.path.dirname(target) + "/balanced.png", (255 * img[10:4010, 10:6010, ::-1]).astype(np.uint8))
+        # cv2.imwrite(os.path.dirname(target) + "/balanced.png", (255 * img[10:4010, 10:6010, ::-1]).astype(np.uint8))
+        cv2.imwrite(target[:-4] + ".bmp", (255 * img[10:4010, 10:6010, ::-1]).astype(np.uint8))
 
         plt.figure('Balanced', (12, 9))
         plt.imshow(img)
@@ -131,10 +132,11 @@ def balance(rgb, white_balance=None, gamma=None):
         for ch in range(3):
             rgb[:, :, ch] *= white_balance[ch]
 
-    rgb = np.maximum(0, np.minimum(rgb, 1))[2:-2,2:-2,:] # crop corner cases from demosaicing
+    rgb = np.maximum(0, np.minimum(rgb, 1))[2:-2, 2:-2, :]  # crop corner cases from demosaicing
 
     if gamma is not None:
-        rgb = rgb**(1/gamma) # reverse gamma to linearize
+        if abs(gamma - 1.0) > 0.001:
+            rgb = rgb**(1/gamma)  # reverse gamma to linearize
 
     return rgb
 
@@ -165,7 +167,54 @@ def read_raw(source, cache_raw=IGNORE, white_balance=wb_leds, gamma=gamma_defaul
 
     return img
 
+
+def crop():
+    in_dir = "D:/Dropbox/work/paleo/fossil-textures/crops_organized/"
+    out_dir = "D:/Dropbox/work/paleo/fossil-textures/crops_all_adjusted/"
+
+    groups = glob.glob(in_dir + "*.BMP")
+    w, h, low, high = 10000, 10000, 255, 0
+    fake_scale = 1.0
+
+    for group in groups:
+        images = glob.glob(group[:-4] + "/*.bmp")
+        for image in images:
+            img = cv2.imread(image)
+            if "fake" in image:
+                print(image, img.shape, img.dtype, np.min(img), np.max(img))
+                img = (fake_scale * img.astype(np.float32)).astype(np.uint8)
+                # continue
+
+            w, h = min(w, img.shape[1]), min(h, img.shape[0])
+            low, high = min(low, np.min(img)), max(high, np.max(img))
+
+    print(w, h, low, high)
+
+    for group in groups:
+        images = glob.glob(group[:-4] + "/*.bmp")
+        for image in images:
+            img = cv2.imread(image)
+            if "fake" in image:
+                img = (fake_scale * img.astype(np.float32)).astype(np.uint8)
+
+            dirname = group[group.rfind("\\")+1:-4]
+            filename = os.path.basename(image)
+            # print(group, dirname, filename)
+
+            save_to = out_dir + dirname + "_" + filename
+            # print(save_to)
+
+            l, t = (img.shape[1] - w) // 2, (img.shape[0] - h) // 2
+            img = img[t:t+h-1, l:l+w-1, :]
+            img = 255.0 * (img.astype(np.float32) - low) / (high - low)
+            cv2.imwrite(save_to, img.astype(np.uint8))
+
+    exit(0)
+
+
 if __name__ == "__main__":
+    crop()
+
     # plt.figure("simple")
     # plt.imshow(5*read_raw("/home/yurii/data/calib/DSC00090.ARW", use_cache=False, white_balance=(1.5,1,2.6), demosaicing_method="simple"))
     # plt.figure("good")
@@ -183,3 +232,13 @@ if __name__ == "__main__":
     wb = find_balance(target, mask, plot=True, save=True)
 
     plt.show()
+
+    # data_path = "D:/Dropbox/work/paleo/fossil-textures/originals_all_balanced/"
+    # files = glob.glob(data_path + "*.png")
+    #
+    # for file in files:
+    #     target, mask = file[:-4] + ".ARW", file
+    #     find_balance(target, mask, plot=True, save=True)
+    #     # break
+    #
+    # plt.show()
